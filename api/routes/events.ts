@@ -2,6 +2,11 @@ import { Router, type Request, type Response } from 'express'
 import {
   getEventsByHotelId,
   getPartyEventsByHotelId,
+  getEventById,
+  updateEvent,
+  getPartyEventById,
+  updatePartyEvent,
+  addPartyEvent,
 } from '../data/store.js'
 import {
   generateRandomEvent,
@@ -47,7 +52,7 @@ router.post('/hotel/:hotelId/generate', async (req: Request, res: Response): Pro
   }
 })
 
-router.post('/:eventId/resolve', async (req: Request, res: Response): Promise<void> => {
+router.put('/:eventId/resolve', async (req: Request, res: Response): Promise<void> => {
   try {
     const { eventId } = req.params
     const { optionId, playerId } = req.body
@@ -56,13 +61,14 @@ router.post('/:eventId/resolve', async (req: Request, res: Response): Promise<vo
       res.status(400).json({ success: false, error: result.message })
       return
     }
-    res.status(200).json({ success: true, data: result })
+    const updatedEvent = getEventById(eventId)
+    res.status(200).json({ success: true, data: updatedEvent })
   } catch (error) {
     res.status(500).json({ success: false, error: '处理事件失败' })
   }
 })
 
-router.get('/parties/hotel/:hotelId', async (req: Request, res: Response): Promise<void> => {
+router.get('/hotel/:hotelId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { hotelId } = req.params
     const parties = getPartyEventsByHotelId(hotelId)
@@ -72,7 +78,59 @@ router.get('/parties/hotel/:hotelId', async (req: Request, res: Response): Promi
   }
 })
 
-router.post('/parties/:partyId/progress', async (req: Request, res: Response): Promise<void> => {
+router.post('/', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { hotelId, type, name, budget, maxAttendees, startTime } = req.body
+    const newParty = addPartyEvent({
+      hotelId,
+      type: type || 'party',
+      name,
+      budget,
+      attendees: 0,
+      maxAttendees: maxAttendees || 50,
+      revenue: 0,
+      serviceScore: 0,
+      preparationProgress: 0,
+      status: 'planning',
+      startTime: startTime ? new Date(startTime) : new Date(Date.now() + 86400000),
+    })
+    res.status(201).json({ success: true, data: newParty })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '创建活动失败' })
+  }
+})
+
+router.put('/:partyId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { partyId } = req.params
+    const updates = req.body
+    const party = updatePartyEvent(partyId, updates)
+    if (!party) {
+      res.status(404).json({ success: false, error: '活动不存在' })
+      return
+    }
+    res.status(200).json({ success: true, data: party })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '更新活动失败' })
+  }
+})
+
+router.put('/:partyId/start', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { partyId } = req.params
+    const party = updatePartyProgress(partyId)
+    if (!party) {
+      res.status(404).json({ success: false, error: '活动不存在' })
+      return
+    }
+    const updated = updatePartyEvent(partyId, { status: 'ongoing', preparationProgress: 100 })
+    res.status(200).json({ success: true, data: updated })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '开始活动失败' })
+  }
+})
+
+router.put('/:partyId/progress', async (req: Request, res: Response): Promise<void> => {
   try {
     const { partyId } = req.params
     const party = updatePartyProgress(partyId)
@@ -86,15 +144,16 @@ router.post('/parties/:partyId/progress', async (req: Request, res: Response): P
   }
 })
 
-router.post('/parties/:partyId/complete', async (req: Request, res: Response): Promise<void> => {
+router.put('/:partyId/complete', async (req: Request, res: Response): Promise<void> => {
   try {
     const { partyId } = req.params
     const result = completePartyEvent(partyId)
     if (!result.success) {
-      res.status(400).json({ success: false, error: '完成活动失败' })
+      res.status(400).json({ success: false, error: result.message })
       return
     }
-    res.status(200).json({ success: true, data: result })
+    const party = getPartyEventById(partyId)
+    res.status(200).json({ success: true, data: party })
   } catch (error) {
     res.status(500).json({ success: false, error: '完成活动失败' })
   }

@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
 import hotelRoutes from './routes/hotel.js'
 import staffRoutes from './routes/staff.js'
-import operationsRoutes from './routes/operations.js'
+import guestsRoutes from './routes/operations.js'
 import eventsRoutes from './routes/events.js'
 import marketRoutes from './routes/market.js'
 import guildRoutes from './routes/guild.js'
@@ -38,12 +38,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
  * API Routes
  */
 app.use('/api/auth', authRoutes)
-app.use('/api/hotel', hotelRoutes)
+app.use('/api/hotels', hotelRoutes)
 app.use('/api/staff', staffRoutes)
-app.use('/api/operations', operationsRoutes)
-app.use('/api/events', eventsRoutes)
+app.use('/api/guests', guestsRoutes)
+app.use('/api', eventsRoutes)
 app.use('/api/market', marketRoutes)
-app.use('/api/guild', guildRoutes)
+app.use('/api/guilds', guildRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/leaderboard', leaderboardRoutes)
 

@@ -506,137 +506,16 @@ const store: DataStore = {
 
 export const getPlayerById = (id: string): Player | undefined => store.players.find(p => p.id === id)
 
-export const getHotelByPlayerId = (playerId: string): Hotel | undefined => store.hotels.find(h => h.playerId === playerId)
-
-export const getHotelById = (id: string): Hotel | undefined => store.hotels.find(h => h.id === id)
-
-export const updateHotel = (id: string, updates: Partial<Hotel>): Hotel | undefined => {
-  const index = store.hotels.findIndex(h => h.id === id)
+export const updatePlayer = (id: string, updates: Partial<Player>): Player | undefined => {
+  const index = store.players.findIndex(p => p.id === id)
   if (index !== -1) {
-    store.hotels[index] = { ...store.hotels[index], ...updates }
-    return store.hotels[index]
+    store.players[index] = { ...store.players[index], ...updates }
+    return store.players[index]
   }
   return undefined
 }
 
-export const getStaffByHotelId = (hotelId: string): Staff[] => store.staff.filter(s => s.hotelId === hotelId)
-
-export const getStaffById = (id: string): Staff | undefined => store.staff.find(s => s.id === id)
-
-export const updateStaff = (id: string, updates: Partial<Staff>): Staff | undefined => {
-  const index = store.staff.findIndex(s => s.id === id)
-  if (index !== -1) {
-    store.staff[index] = { ...store.staff[index], ...updates }
-    return store.staff[index]
-  }
-  return undefined
-}
-
-export const addStaff = (staff: Omit<Staff, 'id'>): Staff => {
-  const newStaff = { ...staff, id: generateId() }
-  store.staff.push(newStaff)
-  return newStaff
-}
-
-export const getGuestsByHotelId = (hotelId: string): Guest[] => {
-  const hotel = getHotelById(hotelId)
-  if (!hotel) return []
-  const roomIds = hotel.rooms.filter(r => r.guestId).map(r => r.guestId)
-  return store.guests.filter(g => roomIds.includes(g.id))
-}
-
-export const getAllGuests = (): Guest[] => store.guests
-
-export const getEventsByHotelId = (hotelId: string): GameEvent[] =>
-  store.events.filter(e => e.hotelId === hotelId && !e.resolved)
-
-export const updateEvent = (id: string, updates: Partial<GameEvent>): GameEvent | undefined => {
-  const index = store.events.findIndex(e => e.id === id)
-  if (index !== -1) {
-    store.events[index] = { ...store.events[index], ...updates }
-    return store.events[index]
-  }
-  return undefined
-}
-
-export const addEvent = (event: Omit<GameEvent, 'id'>): GameEvent => {
-  const newEvent = { ...event, id: generateId() }
-  store.events.push(newEvent)
-  return newEvent
-}
-
-export const getPartyEventsByHotelId = (hotelId: string): PartyEvent[] =>
-  store.partyEvents.filter(p => p.hotelId === hotelId)
-
-export const updatePartyEvent = (id: string, updates: Partial<PartyEvent>): PartyEvent | undefined => {
-  const index = store.partyEvents.findIndex(p => p.id === id)
-  if (index !== -1) {
-    store.partyEvents[index] = { ...store.partyEvents[index], ...updates }
-    return store.partyEvents[index]
-  }
-  return undefined
-}
-
-export const getMarketListings = (itemType?: string): MarketListing[] => {
-  if (itemType) return store.marketListings.filter(m => m.itemType === itemType)
-  return store.marketListings
-}
-
-export const getMarketListingById = (id: string): MarketListing | undefined =>
-  store.marketListings.find(m => m.id === id)
-
-export const addMarketListing = (listing: Omit<MarketListing, 'id'>): MarketListing => {
-  const newListing = { ...listing, id: generateId() }
-  store.marketListings.push(newListing)
-  return newListing
-}
-
-export const removeMarketListing = (id: string): boolean => {
-  const index = store.marketListings.findIndex(m => m.id === id)
-  if (index !== -1) {
-    store.marketListings.splice(index, 1)
-    return true
-  }
-  return false
-}
-
-export const getPriceHistory = (itemName: string, days: number = 7): number[] => {
-  const cutoff = new Date(Date.now() - days * 86400000)
-  return store.priceHistory
-    .filter(p => p.itemName === itemName && p.date >= cutoff)
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .map(p => p.price)
-}
-
-export const addPriceRecord = (itemName: string, price: number): void => {
-  store.priceHistory.push({ itemName, price, date: new Date() })
-}
-
-export const getAllGuilds = (): Guild[] => store.guilds
-
-export const getGuildById = (id: string): Guild | undefined => store.guilds.find(g => g.id === id)
-
-export const getGuildByPlayerId = (playerId: string): Guild | undefined =>
-  store.guilds.find(g => g.members.some(m => m.playerId === playerId))
-
-export const updateGuild = (id: string, updates: Partial<Guild>): Guild | undefined => {
-  const index = store.guilds.findIndex(g => g.id === id)
-  if (index !== -1) {
-    store.guilds[index] = { ...store.guilds[index], ...updates }
-    return store.guilds[index]
-  }
-  return undefined
-}
-
-export const addGuildMember = (guildId: string, member: GuildMember): Guild | undefined => {
-  const guild = getGuildById(guildId)
-  if (guild) {
-    guild.members.push(member)
-    guild.totalContribution += member.contribution
-    return guild
-  }
-  return undefined
-}
+export const getAllPlayers = (): Player[] => store.players
 
 export const getPlayersSortedByRevenue = (): Player[] => {
   return [...store.players].sort((a, b) => {
@@ -650,15 +529,71 @@ export const getPlayersSortedByLevel = (): Player[] => {
   return [...store.players].sort((a, b) => b.level - a.level)
 }
 
+export const addPlayer = (player: Partial<Player>): Player => {
+  const newPlayer: Player = {
+    id: player.id || generateId(),
+    name: player.name || '新玩家',
+    avatar: player.avatar || '👤',
+    coins: player.coins ?? 0,
+    level: player.level ?? 1,
+    exp: player.exp ?? 0,
+    guildId: player.guildId,
+  }
+  store.players.push(newPlayer)
+  return newPlayer
+}
+
+export const getHotelByPlayerId = (playerId: string): Hotel | undefined => store.hotels.find(h => h.playerId === playerId)
+
+export const getHotelById = (id: string): Hotel | undefined => store.hotels.find(h => h.id === id)
+
+export const getAllHotels = (): Hotel[] => store.hotels
+
 export const getHotelsSortedByRooms = (): Hotel[] => {
   return [...store.hotels].sort((a, b) => b.rooms.length - a.rooms.length)
 }
 
-export const updatePlayer = (id: string, updates: Partial<Player>): Player | undefined => {
-  const index = store.players.findIndex(p => p.id === id)
+export const createHotel = (playerId: string, name: string, style: 'classical' | 'modern' | 'tropical'): Hotel => {
+  const styleConfig = HOTEL_STYLES[style]
+  const newHotel: Hotel = {
+    id: generateId(),
+    playerId,
+    name,
+    style,
+    rooms: [],
+    facilities: [],
+    comfortScore: styleConfig.baseComfort,
+    rating: 0,
+    totalRevenue: 0,
+  }
+  store.hotels.push(newHotel)
+  return newHotel
+}
+
+export const updateHotel = (hotelId: string, updates: Partial<Hotel>): Hotel | undefined => {
+  const index = store.hotels.findIndex(h => h.id === hotelId)
   if (index !== -1) {
-    store.players[index] = { ...store.players[index], ...updates }
-    return store.players[index]
+    store.hotels[index] = { ...store.hotels[index], ...updates }
+    return store.hotels[index]
+  }
+  return undefined
+}
+
+export const addRoom = (hotelId: string, roomData: { type: string; floor: number; number: string }): Hotel | undefined => {
+  const hotel = getHotelById(hotelId)
+  if (hotel) {
+    const roomTypeConfig = ROOM_TYPES[roomData.type as keyof typeof ROOM_TYPES]
+    const newRoom: Room = {
+      id: generateId(),
+      type: roomData.type as Room['type'],
+      number: roomData.number,
+      floor: roomData.floor,
+      price: roomTypeConfig?.basePrice || 500,
+      comfort: roomTypeConfig?.baseComfort || 50,
+      status: 'vacant',
+    }
+    hotel.rooms.push(newRoom)
+    return hotel
   }
   return undefined
 }
@@ -675,10 +610,286 @@ export const updateRoom = (hotelId: string, roomId: string, updates: Partial<Roo
   return undefined
 }
 
-export const addGuest = (guest: Omit<Guest, 'id'>): Guest => {
-  const newGuest = { ...guest, id: generateId() }
+export const addFacility = (hotelId: string, type: string): Hotel | undefined => {
+  const hotel = getHotelById(hotelId)
+  if (hotel) {
+    const newFacility: Facility = {
+      id: generateId(),
+      type: type as Facility['type'],
+      level: 1,
+      quality: 50,
+    }
+    hotel.facilities.push(newFacility)
+    return hotel
+  }
+  return undefined
+}
+
+export const updateFacility = (hotelId: string, facilityId: string, updates: Partial<Facility>): Facility | undefined => {
+  const hotel = getHotelById(hotelId)
+  if (hotel) {
+    const index = hotel.facilities.findIndex(f => f.id === facilityId)
+    if (index !== -1) {
+      hotel.facilities[index] = { ...hotel.facilities[index], ...updates }
+      return hotel.facilities[index]
+    }
+  }
+  return undefined
+}
+
+export const getStaffByHotelId = (hotelId: string): Staff[] => store.staff.filter(s => s.hotelId === hotelId)
+
+export const getStaffById = (id: string): Staff | undefined => store.staff.find(s => s.id === id)
+
+export const addStaff = (staffData: Partial<Staff>): Staff => {
+  const newStaff: Staff = {
+    id: staffData.id || generateId(),
+    hotelId: staffData.hotelId || '',
+    name: staffData.name || '新员工',
+    avatar: staffData.avatar || '👤',
+    position: staffData.position || 'receptionist',
+    skills: staffData.skills || { service: 50, efficiency: 50, friendliness: 50, professionalism: 50 },
+    satisfaction: staffData.satisfaction ?? 70,
+    fatigue: staffData.fatigue ?? 0,
+    salary: staffData.salary ?? 5000,
+    level: staffData.level ?? 1,
+    status: staffData.status || 'working',
+    schedule: staffData.schedule || [],
+  }
+  store.staff.push(newStaff)
+  return newStaff
+}
+
+export const updateStaff = (staffId: string, updates: Partial<Staff>): Staff | undefined => {
+  const index = store.staff.findIndex(s => s.id === staffId)
+  if (index !== -1) {
+    store.staff[index] = { ...store.staff[index], ...updates }
+    return store.staff[index]
+  }
+  return undefined
+}
+
+export const deleteStaff = (staffId: string): boolean => {
+  const index = store.staff.findIndex(s => s.id === staffId)
+  if (index !== -1) {
+    store.staff.splice(index, 1)
+    return true
+  }
+  return false
+}
+
+export const getGuestsByHotelId = (hotelId: string): Guest[] => {
+  const hotel = getHotelById(hotelId)
+  if (!hotel) return []
+  const roomGuestIds = hotel.rooms.filter(r => r.guestId).map(r => r.guestId)
+  const checkedInGuests = store.guests.filter(g => roomGuestIds.includes(g.id))
+  const waitingGuests = store.guests.filter(g => !g.roomId)
+  return [...checkedInGuests, ...waitingGuests]
+}
+
+export const getAllGuests = (): Guest[] => store.guests
+
+export const getGuestById = (id: string): Guest | undefined => store.guests.find(g => g.id === id)
+
+export const addGuest = (guestData: Partial<Guest>): Guest => {
+  const newGuest: Guest = {
+    id: guestData.id || generateId(),
+    name: guestData.name || '新客人',
+    avatar: guestData.avatar || '🧑',
+    preferences: guestData.preferences || [],
+    budget: guestData.budget ?? 1000,
+    satisfaction: guestData.satisfaction ?? 50,
+    checkIn: guestData.checkIn,
+    checkOut: guestData.checkOut,
+    roomId: guestData.roomId,
+  }
   store.guests.push(newGuest)
   return newGuest
+}
+
+export const updateGuest = (guestId: string, updates: Partial<Guest>): Guest | undefined => {
+  const index = store.guests.findIndex(g => g.id === guestId)
+  if (index !== -1) {
+    store.guests[index] = { ...store.guests[index], ...updates }
+    return store.guests[index]
+  }
+  return undefined
+}
+
+export const deleteGuest = (guestId: string): boolean => {
+  const index = store.guests.findIndex(g => g.id === guestId)
+  if (index !== -1) {
+    store.guests.splice(index, 1)
+    return true
+  }
+  return false
+}
+
+export const getEventsByHotelId = (hotelId: string): GameEvent[] =>
+  store.events.filter(e => e.hotelId === hotelId && !e.resolved)
+
+export const getEventById = (id: string): GameEvent | undefined => store.events.find(e => e.id === id)
+
+export const addEvent = (eventData: Partial<GameEvent>): GameEvent => {
+  const newEvent: GameEvent = {
+    id: eventData.id || generateId(),
+    hotelId: eventData.hotelId || '',
+    type: eventData.type || 'complaint',
+    title: eventData.title || '新事件',
+    description: eventData.description || '',
+    options: eventData.options || [],
+    createdAt: eventData.createdAt || new Date(),
+    expiresAt: eventData.expiresAt || new Date(Date.now() + 3600000),
+    resolved: eventData.resolved,
+  }
+  store.events.push(newEvent)
+  return newEvent
+}
+
+export const updateEvent = (eventId: string, updates: Partial<GameEvent>): GameEvent | undefined => {
+  const index = store.events.findIndex(e => e.id === eventId)
+  if (index !== -1) {
+    store.events[index] = { ...store.events[index], ...updates }
+    return store.events[index]
+  }
+  return undefined
+}
+
+export const getPartyEventsByHotelId = (hotelId: string): PartyEvent[] =>
+  store.partyEvents.filter(p => p.hotelId === hotelId)
+
+export const getPartyEventById = (id: string): PartyEvent | undefined =>
+  store.partyEvents.find(p => p.id === id)
+
+export const addPartyEvent = (partyData: Partial<PartyEvent>): PartyEvent => {
+  const newPartyEvent: PartyEvent = {
+    id: partyData.id || generateId(),
+    hotelId: partyData.hotelId || '',
+    type: partyData.type || 'party',
+    name: partyData.name || '新活动',
+    budget: partyData.budget ?? 0,
+    attendees: partyData.attendees ?? 0,
+    maxAttendees: partyData.maxAttendees ?? 100,
+    revenue: partyData.revenue ?? 0,
+    serviceScore: partyData.serviceScore ?? 0,
+    preparationProgress: partyData.preparationProgress ?? 0,
+    status: partyData.status || 'planning',
+    startTime: partyData.startTime || new Date(),
+  }
+  store.partyEvents.push(newPartyEvent)
+  return newPartyEvent
+}
+
+export const updatePartyEvent = (partyId: string, updates: Partial<PartyEvent>): PartyEvent | undefined => {
+  const index = store.partyEvents.findIndex(p => p.id === partyId)
+  if (index !== -1) {
+    store.partyEvents[index] = { ...store.partyEvents[index], ...updates }
+    return store.partyEvents[index]
+  }
+  return undefined
+}
+
+export const getAllMarketListings = (): MarketListing[] => store.marketListings
+
+export const getMarketListingById = (id: string): MarketListing | undefined =>
+  store.marketListings.find(m => m.id === id)
+
+export const addMarketListing = (listing: Partial<MarketListing>): MarketListing => {
+  const newListing: MarketListing = {
+    id: listing.id || generateId(),
+    sellerId: listing.sellerId || '',
+    sellerName: listing.sellerName || '',
+    itemType: listing.itemType || 'blueprint',
+    itemName: listing.itemName || '',
+    itemRarity: listing.itemRarity || 'common',
+    price: listing.price ?? 0,
+    suggestedPriceMin: listing.suggestedPriceMin ?? 0,
+    suggestedPriceMax: listing.suggestedPriceMax ?? 0,
+    createdAt: listing.createdAt || new Date(),
+    expiresAt: listing.expiresAt || new Date(Date.now() + 86400000),
+  }
+  store.marketListings.push(newListing)
+  return newListing
+}
+
+export const deleteMarketListing = (id: string): boolean => {
+  const index = store.marketListings.findIndex(m => m.id === id)
+  if (index !== -1) {
+    store.marketListings.splice(index, 1)
+    return true
+  }
+  return false
+}
+
+export const getPriceHistory = (itemName: string, itemRarity: string): { date: string; price: number }[] => {
+  return store.priceHistory
+    .filter(p => p.itemName === itemName)
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map(p => ({ date: p.date.toISOString(), price: p.price }))
+}
+
+export const addPriceHistory = (itemName: string, itemRarity: string, price: number): void => {
+  store.priceHistory.push({ itemName, price, date: new Date() })
+}
+
+export const getAllGuilds = (): Guild[] => store.guilds
+
+export const getGuildById = (id: string): Guild | undefined => store.guilds.find(g => g.id === id)
+
+export const getGuildByPlayerId = (playerId: string): Guild | undefined =>
+  store.guilds.find(g => g.members.some(m => m.playerId === playerId))
+
+export const addGuild = (guildData: Partial<Guild>): Guild => {
+  const newGuild: Guild = {
+    id: guildData.id || generateId(),
+    name: guildData.name || '新公会',
+    leaderId: guildData.leaderId || '',
+    members: guildData.members || [],
+    resortLevel: guildData.resortLevel ?? 1,
+    totalContribution: guildData.totalContribution ?? 0,
+    visitorBonus: guildData.visitorBonus ?? 0,
+    revenueBonus: guildData.revenueBonus ?? 0,
+  }
+  store.guilds.push(newGuild)
+  return newGuild
+}
+
+export const updateGuild = (guildId: string, updates: Partial<Guild>): Guild | undefined => {
+  const index = store.guilds.findIndex(g => g.id === guildId)
+  if (index !== -1) {
+    store.guilds[index] = { ...store.guilds[index], ...updates }
+    return store.guilds[index]
+  }
+  return undefined
+}
+
+export const getGuestById = (id: string): Guest | undefined => store.guests.find(g => g.id === id)
+
+export const removeStaff = deleteStaff
+export const removeMarketListing = deleteMarketListing
+export const addPriceRecord = (itemName: string, price: number): void => addPriceHistory(itemName, '', price)
+export const getMarketListings = getAllMarketListings
+
+export const createDefaultHotel = (playerId: string): Hotel => {
+  const newHotel: Hotel = {
+    id: generateId(),
+    playerId,
+    name: '我的酒店',
+    style: 'modern',
+    rooms: [
+      { id: generateId(), type: 'standard', number: '101', floor: 1, price: 500, comfort: 55, status: 'vacant' },
+      { id: generateId(), type: 'standard', number: '102', floor: 1, price: 500, comfort: 55, status: 'vacant' },
+      { id: generateId(), type: 'standard', number: '103', floor: 1, price: 550, comfort: 58, status: 'vacant' },
+    ],
+    facilities: [
+      { id: generateId(), type: 'restaurant', level: 1, quality: 70 },
+    ],
+    comfortScore: 60,
+    rating: 3.5,
+    totalRevenue: 0,
+  }
+  store.hotels.push(newHotel)
+  return newHotel
 }
 
 export { store }

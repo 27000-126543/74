@@ -8,6 +8,7 @@ import {
   addPriceRecord,
   getPlayerById,
   updatePlayer,
+  store,
 } from '../data/store.js'
 
 const RARITY_BASE_PRICE: Record<string, number> = {
@@ -17,26 +18,34 @@ const RARITY_BASE_PRICE: Record<string, number> = {
   legendary: 20000,
 }
 
-export const getSuggestedPrice = (itemName: string, itemRarity: string): { min: number; max: number; avg: number; history: number[] } => {
-  const history = getPriceHistory(itemName, 7)
+export const getSuggestedPrice = (itemType: string, itemRarity: string): { min: number; max: number; average: number; history: { date: Date; price: number; itemName: string }[] } => {
   const basePrice = RARITY_BASE_PRICE[itemRarity] || 500
 
-  if (history.length === 0) {
+  const historyData = store.priceHistory
+    .filter((p) => {
+      const cutoff = new Date(Date.now() - 7 * 86400000)
+      return p.date >= cutoff
+    })
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+
+  const prices = historyData.map((p) => p.price)
+
+  if (prices.length === 0) {
     return {
       min: Math.round(basePrice * 0.8),
       max: Math.round(basePrice * 1.2),
-      avg: basePrice,
+      average: basePrice,
       history: [],
     }
   }
 
-  const sum = history.reduce((a, b) => a + b, 0)
-  const avg = Math.round(sum / history.length)
+  const sum = prices.reduce((a, b) => a + b, 0)
+  const average = Math.round(sum / prices.length)
 
-  const min = Math.round(avg * 0.85)
-  const max = Math.round(avg * 1.15)
+  const min = Math.round(average * 0.85)
+  const max = Math.round(average * 1.15)
 
-  return { min, max, avg, history }
+  return { min, max, average, history: historyData }
 }
 
 export const publishListing = (

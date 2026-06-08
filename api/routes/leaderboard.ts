@@ -1,114 +1,79 @@
 import { Router, type Request, type Response } from 'express'
 import {
-  getPlayersSortedByRevenue,
-  getPlayersSortedByLevel,
-  getHotelsSortedByRooms,
-  getHotelByPlayerId,
+  getPlayerById,
+  store,
 } from '../data/store.js'
 
 const router = Router()
 
-router.get('/revenue', async (_req: Request, res: Response): Promise<void> => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const players = getPlayersSortedByRevenue()
-    const ranking = players.map((player, index) => {
-      const hotel = getHotelByPlayerId(player.id)
+    const allHotels = [...store.hotels]
+
+    const hotelsWithPlayerInfo = allHotels.map(hotel => {
+      const player = getPlayerById(hotel.playerId)
       return {
-        rank: index + 1,
-        playerId: player.id,
-        playerName: player.name,
-        avatar: player.avatar,
-        level: player.level,
-        totalRevenue: hotel?.totalRevenue || 0,
-        hotelName: hotel?.name || '',
-      }
-    })
-    res.status(200).json({ success: true, data: ranking })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取收入排名失败' })
-  }
-})
-
-router.get('/level', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const players = getPlayersSortedByLevel()
-    const ranking = players.map((player, index) => ({
-      rank: index + 1,
-      playerId: player.id,
-      playerName: player.name,
-      avatar: player.avatar,
-      level: player.level,
-      exp: player.exp,
-    }))
-    res.status(200).json({ success: true, data: ranking })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取等级排名失败' })
-  }
-})
-
-router.get('/rooms', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const hotels = getHotelsSortedByRooms()
-    const ranking = hotels.map((hotel, index) => ({
-      rank: index + 1,
-      hotelId: hotel.id,
-      hotelName: hotel.name,
-      style: hotel.style,
-      roomCount: hotel.rooms.length,
-      rating: hotel.rating,
-      totalRevenue: hotel.totalRevenue,
-    }))
-    res.status(200).json({ success: true, data: ranking })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取客房数排名失败' })
-  }
-})
-
-router.get('/all', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const revenuePlayers = getPlayersSortedByRevenue()
-    const levelPlayers = getPlayersSortedByLevel()
-    const hotels = getHotelsSortedByRooms()
-
-    const revenueRanking = revenuePlayers.map((player, index) => {
-      const hotel = getHotelByPlayerId(player.id)
-      return {
-        rank: index + 1,
-        playerId: player.id,
-        playerName: player.name,
-        avatar: player.avatar,
-        level: player.level,
-        totalRevenue: hotel?.totalRevenue || 0,
+        playerId: hotel.playerId,
+        playerName: player?.name || '',
+        avatar: player?.avatar || '',
+        hotelId: hotel.id,
+        hotelName: hotel.name,
+        rating: hotel.rating,
+        totalRevenue: hotel.totalRevenue,
+        roomCount: hotel.rooms.length,
       }
     })
 
-    const levelRanking = levelPlayers.map((player, index) => ({
-      rank: index + 1,
-      playerId: player.id,
-      playerName: player.name,
-      avatar: player.avatar,
-      level: player.level,
-      exp: player.exp,
-    }))
+    const ratingRanking = [...hotelsWithPlayerInfo]
+      .sort((a, b) => b.rating - a.rating)
+      .slice(0, 20)
+      .map((item, index) => ({
+        rank: index + 1,
+        playerId: item.playerId,
+        playerName: item.playerName,
+        avatar: item.avatar,
+        hotelId: item.hotelId,
+        hotelName: item.hotelName,
+        rating: item.rating,
+      }))
 
-    const roomsRanking = hotels.map((hotel, index) => ({
-      rank: index + 1,
-      hotelId: hotel.id,
-      hotelName: hotel.name,
-      roomCount: hotel.rooms.length,
-      rating: hotel.rating,
-    }))
+    const revenueRanking = [...hotelsWithPlayerInfo]
+      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .slice(0, 20)
+      .map((item, index) => ({
+        rank: index + 1,
+        playerId: item.playerId,
+        playerName: item.playerName,
+        avatar: item.avatar,
+        hotelId: item.hotelId,
+        hotelName: item.hotelName,
+        totalRevenue: item.totalRevenue,
+      }))
+
+    const roomsRanking = [...hotelsWithPlayerInfo]
+      .sort((a, b) => b.roomCount - a.roomCount)
+      .slice(0, 20)
+      .map((item, index) => ({
+        rank: index + 1,
+        playerId: item.playerId,
+        playerName: item.playerName,
+        avatar: item.avatar,
+        hotelId: item.hotelId,
+        hotelName: item.hotelName,
+        roomCount: item.roomCount,
+      }))
 
     res.status(200).json({
       success: true,
       data: {
+        rating: ratingRanking,
         revenue: revenueRanking,
-        level: levelRanking,
         rooms: roomsRanking,
       },
+      error: null,
     })
   } catch (error) {
-    res.status(500).json({ success: false, error: '获取所有排名失败' })
+    res.status(500).json({ success: false, data: null, error: '获取排行榜失败' })
   }
 })
 

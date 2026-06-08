@@ -1,9 +1,7 @@
 import { Router, type Request, type Response } from 'express'
-import { getPlayerById } from '../data/store.js'
+import { getPlayerById, getAllPlayers, addPlayer } from '../data/store.js'
 
 const router = Router()
-
-const players: { id: string; name: string; avatar: string; coins: number; level: number; exp: number; createdAt: Date }[] = []
 
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   const { name } = req.body
@@ -16,21 +14,19 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
-  let player = players.find(p => p.name === name.trim())
+  const allPlayers = getAllPlayers()
+  let player = allPlayers.find(p => p.name === name.trim())
 
   if (!player) {
     const avatars = ['👨‍💼', '👩‍💼', '🧑‍💼', '👨‍🍳', '👩‍🍳', '🧑‍🎨', '👨‍🎤', '👩‍🎤']
-    const newPlayer = {
+    player = addPlayer({
       id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       name: name.trim(),
       avatar: avatars[Math.floor(Math.random() * avatars.length)],
       coins: 100000,
       level: 1,
       exp: 0,
-      createdAt: new Date(),
-    }
-    players.push(newPlayer)
-    player = newPlayer
+    })
   }
 
   res.json({
@@ -57,11 +53,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
     return
   }
 
-  let player = getPlayerById(playerId)
-
-  if (!player) {
-    player = players.find(p => p.id === playerId)
-  }
+  const player = getPlayerById(playerId)
 
   if (!player) {
     res.status(404).json({

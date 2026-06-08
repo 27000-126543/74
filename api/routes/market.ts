@@ -1,87 +1,42 @@
 import { Router, type Request, type Response } from 'express'
 import {
   getMarketListingById,
-  getMarketListings,
 } from '../data/store.js'
 import {
   publishListing,
   purchaseListing,
   cancelListing,
   getFilteredListings,
-  getSellerListings,
   getSuggestedPrice,
-  getMarketStats,
 } from '../services/marketService.js'
 
 const router = Router()
 
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/listings', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { itemType, itemRarity, minPrice, maxPrice, sortBy } = req.query
+    const { itemType, itemRarity, minPrice, maxPrice } = req.query
     const listings = getFilteredListings({
       itemType: itemType as string,
       itemRarity: itemRarity as string,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      sortBy: sortBy as any,
     })
     res.status(200).json({ success: true, data: listings })
   } catch (error) {
-    res.status(500).json({ success: false, error: '获取市场列表失败' })
+    res.status(500).json({ success: false, error: '获取商品列表失败' })
   }
 })
 
-router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
+router.post('/listings', async (req: Request, res: Response): Promise<void> => {
   try {
-    const stats = getMarketStats()
-    res.status(200).json({ success: true, data: stats })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取市场统计失败' })
-  }
-})
+    const { sellerId, sellerName, itemType, itemName, itemRarity, price } = req.body
 
-router.get('/suggested-price', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { itemName, itemRarity } = req.query
-    if (!itemName || !itemRarity) {
+    if (!sellerId || !sellerName || !itemType || !itemName || !itemRarity || price === undefined) {
       res.status(400).json({ success: false, error: '缺少必要参数' })
       return
     }
-    const suggested = getSuggestedPrice(itemName as string, itemRarity as string)
-    res.status(200).json({ success: true, data: suggested })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取建议价格失败' })
-  }
-})
 
-router.get('/seller/:sellerId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { sellerId } = req.params
-    const listings = getSellerListings(sellerId)
-    res.status(200).json({ success: true, data: listings })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取卖家列表失败' })
-  }
-})
-
-router.get('/:listingId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { listingId } = req.params
-    const listing = getMarketListingById(listingId)
-    if (!listing) {
-      res.status(404).json({ success: false, error: '商品不存在' })
-      return
-    }
-    res.status(200).json({ success: true, data: listing })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取商品详情失败' })
-  }
-})
-
-router.post('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { sellerId, sellerName, itemType, itemName, itemRarity, price, durationDays } = req.body
-    const result = publishListing(sellerId, sellerName, itemType, itemName, itemRarity, price, durationDays)
+    const result = publishListing(sellerId, sellerName, itemType, itemName, itemRarity, price)
     if (!result.success) {
       res.status(400).json({ success: false, error: result.message })
       return
@@ -92,10 +47,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 })
 
-router.post('/:listingId/purchase', async (req: Request, res: Response): Promise<void> => {
+router.post('/listings/:listingId/buy', async (req: Request, res: Response): Promise<void> => {
   try {
     const { listingId } = req.params
     const { buyerId } = req.body
+
+    if (!buyerId) {
+      res.status(400).json({ success: false, error: '缺少买家ID' })
+      return
+    }
+
     const result = purchaseListing(listingId, buyerId)
     if (!result.success) {
       res.status(400).json({ success: false, error: result.message })
@@ -107,18 +68,38 @@ router.post('/:listingId/purchase', async (req: Request, res: Response): Promise
   }
 })
 
-router.delete('/:listingId', async (req: Request, res: Response): Promise<void> => {
+router.delete('/listings/:listingId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { listingId } = req.params
-    const { sellerId } = req.body
-    const result = cancelListing(listingId, sellerId)
+
+    const listing = getMarketListingById(listingId)
+    if (!listing) {
+      res.status(404).json({ success: false, error: '商品不存在' })
+      return
+    }
+
+    const result = cancelListing(listingId, listing.sellerId)
     if (!result.success) {
       res.status(400).json({ success: false, error: result.message })
       return
     }
-    res.status(200).json({ success: true })
+    res.status(200).json({ success: true, data: null })
   } catch (error) {
     res.status(500).json({ success: false, error: '取消上架失败' })
+  }
+})
+
+router.get('/price-suggestion', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { itemType, itemRarity } = req.query
+    if (!itemType || !itemRarity) {
+      res.status(400).json({ success: false, error: '缺少必要参数' })
+      return
+    }
+    const suggested = getSuggestedPrice(itemType as string, itemRarity as string)
+    res.status(200).json({ success: true, data: suggested })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取建议价格失败' })
   }
 })
 
