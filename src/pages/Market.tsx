@@ -73,8 +73,8 @@ export default function Market() {
   });
 
   useEffect(() => {
-    fetchPriceHistory();
-  }, [fetchPriceHistory]);
+    fetchPriceHistory(typeFilter === 'all' ? undefined : typeFilter);
+  }, [fetchPriceHistory, typeFilter]);
 
   const filteredListings = useMemo(() => {
     return marketListings.filter((listing) => {
@@ -89,10 +89,10 @@ export default function Market() {
       return priceHistory;
     }
     const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
-    return days.map((day, i) => ({
+    return days.map((day) => ({
       day,
-      蓝图: 45000 + Math.sin(i) * 8000 + Math.random() * 5000,
-      食材: 15000 + Math.cos(i) * 3000 + Math.random() * 2000,
+      蓝图: 0,
+      食材: 0,
     }));
   }, [priceHistory]);
 
@@ -103,15 +103,26 @@ export default function Market() {
     e.preventDefault();
     if (!newListing.itemName) return;
 
-    await createListing({
+    const success = await createListing({
       itemType: newListing.itemType,
       itemName: newListing.itemName,
       itemRarity: newListing.itemRarity,
       price: newListing.price,
     });
 
+    if (success) {
+      await fetchPriceHistory(typeFilter === 'all' ? undefined : typeFilter);
+    }
+
     setNewListing({ itemType: 'blueprint', itemName: '', itemRarity: 'common', price: 1000 });
     setShowCreateForm(false);
+  };
+
+  const handleBuyItem = async (listingId: string) => {
+    const success = await buyItem(listingId);
+    if (success) {
+      await fetchPriceHistory(typeFilter === 'all' ? undefined : typeFilter);
+    }
   };
 
   const suggestion = calculateMarketPriceSuggestion(
@@ -440,7 +451,7 @@ export default function Market() {
 
                 {!isSeller && (
                   <button
-                    onClick={() => buyItem(listing.id)}
+                    onClick={() => handleBuyItem(listing.id)}
                     disabled={!player || (player.coins || 0) < listing.price}
                     className="btn-primary w-full !py-2 text-sm"
                   >

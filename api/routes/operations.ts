@@ -12,9 +12,11 @@ import {
   updateStaff,
   getRoomByHotelAndIdOrNumber,
   getHotelIdByRoomIdOrNumber,
+  findGuestOccupiedRoom,
   type Guest,
   type Hotel,
   type Staff,
+  type Room,
 } from '../data/store.js'
 import {
   autoAssignRoom,
@@ -96,7 +98,7 @@ router.post('/checkin', async (req: Request, res: Response): Promise<void> => {
       return
     }
     updateRoom(hid, room.id, { status: 'occupied', guestId })
-    const updatedGuest = updateGuest(guestId, { roomId: room.id, checkIn: new Date() })
+    const updatedGuest = updateGuest(guestId, { roomId: room.id, checkIn: new Date(), hotelId: hid })
     const updatedHotel = getHotelById(hid)
     res.status(200).json({ success: true, data: { guest: updatedGuest, hotel: updatedHotel } })
   } catch (error) {
@@ -116,7 +118,19 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, error: '客人未入住' })
       return
     }
-    const hotelId = getHotelIdByRoomIdOrNumber(guest.roomId)
+    let occupied = findGuestOccupiedRoom(guestId)
+    let hotelId: string | undefined
+    let room: Room | undefined
+    if (occupied) {
+      hotelId = occupied.hotelId
+      room = occupied.room
+    } else {
+      hotelId = getHotelIdByRoomIdOrNumber(guest.roomId)
+      if (hotelId) {
+        const hotel = getHotelById(hotelId)
+        if (hotel) room = getRoomByHotelAndIdOrNumber(hotel, guest.roomId)
+      }
+    }
     if (!hotelId) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -126,7 +140,6 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
     }
-    const room = getRoomByHotelAndIdOrNumber(hotel, guest.roomId)
     if (!room) {
       res.status(404).json({ success: false, error: '房间不存在' })
       return
@@ -252,7 +265,7 @@ router.post('/hotel/:hotelId/auto-assign', async (req: Request, res: Response): 
       const room = autoAssignRoom(guest, hotel)
       if (room) {
         updateRoom(hotelId, room.id, { status: 'occupied', guestId: guest.id })
-        updateGuest(guest.id, { roomId: room.id, checkIn: new Date() })
+        updateGuest(guest.id, { roomId: room.id, checkIn: new Date(), hotelId })
       }
     }
     const hotelGuests = getGuestsByHotelId(hotelId)
@@ -291,7 +304,7 @@ router.put('/:guestId/checkin', async (req: Request, res: Response): Promise<voi
       return
     }
     updateRoom(hid, room.id, { status: 'occupied', guestId })
-    const updatedGuest = updateGuest(guestId, { roomId: room.id, checkIn: new Date() })
+    const updatedGuest = updateGuest(guestId, { roomId: room.id, checkIn: new Date(), hotelId: hid })
     const updatedHotel = getHotelById(hid)
     res.status(200).json({ success: true, data: { guest: updatedGuest, hotel: updatedHotel } })
   } catch (error) {
@@ -311,7 +324,19 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
       res.status(400).json({ success: false, error: '客人未入住' })
       return
     }
-    const hotelId = getHotelIdByRoomIdOrNumber(guest.roomId)
+    let occupied = findGuestOccupiedRoom(guestId)
+    let hotelId: string | undefined
+    let room: Room | undefined
+    if (occupied) {
+      hotelId = occupied.hotelId
+      room = occupied.room
+    } else {
+      hotelId = getHotelIdByRoomIdOrNumber(guest.roomId)
+      if (hotelId) {
+        const hotel = getHotelById(hotelId)
+        if (hotel) room = getRoomByHotelAndIdOrNumber(hotel, guest.roomId)
+      }
+    }
     if (!hotelId) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -321,7 +346,6 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
     }
-    const room = getRoomByHotelAndIdOrNumber(hotel, guest.roomId)
     if (!room) {
       res.status(404).json({ success: false, error: '房间不存在' })
       return

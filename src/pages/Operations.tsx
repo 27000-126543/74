@@ -48,6 +48,7 @@ export default function Operations() {
     checkOutGuest,
     resolveEvent,
     dailyTick,
+    fetchHotel,
   } = useGameStore();
   const { calculateOccupancyRate, autoAssignRooms, calculateStaffImpact } = useGameEngine();
 
@@ -61,8 +62,8 @@ export default function Operations() {
   const [checkInLoading, setCheckInLoading] = useState(false);
   const [checkOutLoading, setCheckOutLoading] = useState<string | null>(null);
 
-  const waitingGuests = useMemo(() => guests.filter((g) => !g.roomId), [guests]);
-  const checkedInGuests = useMemo(() => guests.filter((g) => g.roomId), [guests]);
+  const waitingGuests = useMemo(() => guests.filter((g) => !g.roomId && !g.checkOut), [guests]);
+  const checkedInGuests = useMemo(() => guests.filter((g) => g.roomId && !g.checkOut), [guests]);
   const unresolvedEvents = useMemo(() => events.filter((e) => !e.resolved), [events]);
 
   const occupancyRate = useMemo(() => {
@@ -135,6 +136,7 @@ export default function Operations() {
     setCheckInLoading(true);
     const success = await checkInGuest(selectedGuestForCheckIn.id, selectedRoomId);
     if (success) {
+      await fetchHotel();
       setShowRoomModal(false);
       setSelectedGuestForCheckIn(null);
       setSelectedRoomId(null);
@@ -146,7 +148,9 @@ export default function Operations() {
     try {
       setCheckOutLoading(guestId);
       const success = await checkOutGuest(guestId);
-      if (!success) {
+      if (success) {
+        await fetchHotel();
+      } else {
         console.error('[handleCheckOut] 退房失败');
       }
       setCheckOutLoading(null);

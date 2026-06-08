@@ -635,7 +635,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   checkInGuest: async (guestId, roomId) => {
-    const res = await api.guests.checkIn(guestId, roomId);
+    const hotelId = get().hotel?.id;
+    const res = await api.guests.checkIn(guestId, roomId, hotelId);
     if (res.success && res.data) {
       set({
         guests: get().guests.map((g) =>
@@ -658,7 +659,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   checkOutGuest: async (guestId) => {
-    const res = await api.guests.checkOut(guestId);
+    const hotelId = get().hotel?.id;
+    const res = await api.guests.checkOut(guestId, hotelId);
     if (res.success && res.data) {
       const payload = res.data as any;
       const guestBefore = get().guests.find((g) => g.id === guestId);
@@ -779,6 +781,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         await get().fetchPlayer();
       }
+      await get().fetchPriceHistory();
       return true;
     }
     return false;
@@ -792,6 +795,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const res = await api.market.createListing(sellerId, { ...data, sellerName });
     if (res.success && res.data) {
       set({ marketListings: [...get().marketListings, res.data] });
+      await get().fetchPriceHistory();
       return true;
     }
     return false;

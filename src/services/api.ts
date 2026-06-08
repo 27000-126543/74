@@ -207,12 +207,13 @@ class ApiClient {
 
     checkIn: (
       guestId: string,
-      roomId: string
-    ): Promise<ApiResponse<Guest>> =>
-      this.put<Guest>(`/guests/${guestId}/checkin`, { roomId }),
+      roomId: string,
+      hotelId?: string
+    ): Promise<ApiResponse<any>> =>
+      this.put<any>(`/guests/${guestId}/checkin`, { roomId, hotelId }),
 
-    checkOut: (guestId: string): Promise<ApiResponse<Guest>> =>
-      this.put<Guest>(`/guests/${guestId}/checkout`),
+    checkOut: (guestId: string, hotelId?: string): Promise<ApiResponse<any>> =>
+      this.put<any>(`/guests/${guestId}/checkout`, { hotelId }),
 
     autoAssign: (hotelId: string): Promise<ApiResponse<Guest[]>> =>
       this.post<Guest[]>(`/guests/hotel/${hotelId}/auto-assign`),

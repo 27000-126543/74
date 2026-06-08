@@ -73,6 +73,7 @@ export interface Guest {
   checkIn?: Date
   checkOut?: Date
   roomId?: string
+  hotelId?: string
 }
 
 export interface EventOption {
@@ -239,11 +240,11 @@ export const STAFF_POSITIONS = {
 
 const generateId = (): string => Math.random().toString(36).substring(2, 10)
 
-const createMockRooms = (): Room[] => [
+const createMockRooms = (hotelId: string): Room[] => [
   { id: generateId(), type: 'standard', number: '101', floor: 1, price: 500, comfort: 55, status: 'vacant' },
-  { id: generateId(), type: 'standard', number: '102', floor: 1, price: 500, comfort: 52, status: 'occupied', guestId: 'g1' },
+  { id: generateId(), type: 'standard', number: '102', floor: 1, price: 500, comfort: 52, status: 'occupied', guestId: `${hotelId}-g1` },
   { id: generateId(), type: 'standard', number: '103', floor: 1, price: 550, comfort: 58, status: 'vacant' },
-  { id: generateId(), type: 'suite', number: '201', floor: 2, price: 1500, comfort: 82, status: 'occupied', guestId: 'g2' },
+  { id: generateId(), type: 'suite', number: '201', floor: 2, price: 1500, comfort: 82, status: 'occupied', guestId: `${hotelId}-g2` },
   { id: generateId(), type: 'suite', number: '202', floor: 2, price: 1600, comfort: 85, status: 'vacant' },
   { id: generateId(), type: 'villa', number: '301', floor: 3, price: 5000, comfort: 96, status: 'maintenance' },
 ]
@@ -278,7 +279,7 @@ const createMockHotels = (): Hotel[] => [
     playerId: 'p1',
     name: '皇家大酒店',
     style: 'classical',
-    rooms: createMockRooms(),
+    rooms: createMockRooms('h1'),
     facilities: createMockFacilities(),
     comfortScore: 82,
     rating: 4.7,
@@ -289,7 +290,7 @@ const createMockHotels = (): Hotel[] => [
     playerId: 'p2',
     name: '云顶现代酒店',
     style: 'modern',
-    rooms: createMockRooms(),
+    rooms: createMockRooms('h2'),
     facilities: createMockFacilities(),
     comfortScore: 78,
     rating: 4.5,
@@ -356,10 +357,9 @@ const createMockStaff = (): Staff[] => [
   },
 ]
 
-const createMockGuests = (): Guest[] => [
-  { id: 'g1', name: '旅客A', avatar: '🧑‍🤝‍🧑', preferences: ['安静', '早餐'], budget: 800, satisfaction: 85, checkIn: new Date(), roomId: '102' },
-  { id: 'g2', name: '商务客B', avatar: '👔', preferences: ['高速WiFi', '会议室'], budget: 2000, satisfaction: 90, checkIn: new Date(), roomId: '201' },
-  { id: 'g3', name: '游客C', avatar: '🧳', preferences: ['泳池', 'SPA'], budget: 600, satisfaction: 0, checkIn: undefined },
+const createMockGuests = (hotelId: string): Guest[] => [
+  { id: `${hotelId}-g1`, name: '旅客A', avatar: '🧑‍🤝‍🧑', preferences: ['安静', '早餐'], budget: 800, satisfaction: 85, checkIn: new Date(), roomId: '102', hotelId },
+  { id: `${hotelId}-g2`, name: '商务客B', avatar: '👔', preferences: ['高速WiFi', '会议室'], budget: 2000, satisfaction: 90, checkIn: new Date(), roomId: '201', hotelId },
 ]
 
 const createMockEvents = (): GameEvent[] => [
@@ -483,7 +483,7 @@ const store: DataStore = {
   players: createMockPlayers(),
   hotels: createMockHotels(),
   staff: createMockStaff(),
-  guests: createMockGuests(),
+  guests: [...createMockGuests('h1'), ...createMockGuests('h2'), { id: 'g3', name: '游客C', avatar: '🧳', preferences: ['泳池', 'SPA'], budget: 600, satisfaction: 0, checkIn: undefined }],
   events: createMockEvents(),
   partyEvents: createMockPartyEvents(),
   marketListings: createMockMarketListings(),
@@ -649,6 +649,18 @@ export const getHotelIdByRoomIdOrNumber = (roomIdOrNumber: string): string | und
   return undefined
 }
 
+export const findGuestOccupiedRoom = (
+  guestId: string
+): { hotelId: string; room: Room } | undefined => {
+  for (const hotel of store.hotels) {
+    const room = hotel.rooms.find(r => r.guestId === guestId)
+    if (room) {
+      return { hotelId: hotel.id, room }
+    }
+  }
+  return undefined
+}
+
 export const addFacility = (hotelId: string, type: string): Hotel | undefined => {
   const hotel = getHotelById(hotelId)
   if (hotel) {
@@ -724,7 +736,7 @@ export const getGuestsByHotelId = (hotelId: string): Guest[] => {
   if (!hotel) return []
   const roomGuestIds = hotel.rooms.filter(r => r.guestId).map(r => r.guestId)
   const checkedInGuests = store.guests.filter(g => roomGuestIds.includes(g.id))
-  const waitingGuests = store.guests.filter(g => !g.roomId)
+  const waitingGuests = store.guests.filter(g => !g.roomId && !g.checkOut && (!g.hotelId || g.hotelId === hotelId))
   return [...checkedInGuests, ...waitingGuests]
 }
 
@@ -743,6 +755,7 @@ export const addGuest = (guestData: Partial<Guest>): Guest => {
     checkIn: guestData.checkIn,
     checkOut: guestData.checkOut,
     roomId: guestData.roomId,
+    hotelId: guestData.hotelId,
   }
   store.guests.push(newGuest)
   return newGuest
