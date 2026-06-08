@@ -2,7 +2,6 @@ import { Router, type Request, type Response } from 'express'
 import {
   getGuestsByHotelId,
   getAllGuests,
-  getAllHotels,
   getHotelById,
   addGuest,
   updateRoom,
@@ -11,6 +10,8 @@ import {
   getStaffByHotelId,
   updateHotel,
   updateStaff,
+  getRoomByHotelAndIdOrNumber,
+  getHotelIdByRoomIdOrNumber,
   type Guest,
   type Hotel,
   type Staff,
@@ -75,7 +76,7 @@ router.post('/checkin', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: '客人不存在' })
       return
     }
-    const hid = hotelId || getHotelIdByRoomId(roomId)
+    const hid = hotelId || getHotelIdByRoomIdOrNumber(roomId)
     if (!hid) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -85,7 +86,7 @@ router.post('/checkin', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
     }
-    const room = hotel.rooms.find(r => r.id === roomId)
+    const room = getRoomByHotelAndIdOrNumber(hotel, roomId)
     if (!room) {
       res.status(404).json({ success: false, error: '房间不存在' })
       return
@@ -94,8 +95,8 @@ router.post('/checkin', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, error: '房间已被占用' })
       return
     }
-    updateRoom(hid, roomId, { status: 'occupied', guestId })
-    const updatedGuest = updateGuest(guestId, { roomId, checkIn: new Date() })
+    updateRoom(hid, room.id, { status: 'occupied', guestId })
+    const updatedGuest = updateGuest(guestId, { roomId: room.id, checkIn: new Date() })
     const updatedHotel = getHotelById(hid)
     res.status(200).json({ success: true, data: { guest: updatedGuest, hotel: updatedHotel } })
   } catch (error) {
@@ -115,7 +116,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, error: '客人未入住' })
       return
     }
-    const hotelId = getHotelIdByRoomId(guest.roomId)
+    const hotelId = getHotelIdByRoomIdOrNumber(guest.roomId)
     if (!hotelId) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -125,7 +126,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
     }
-    const room = hotel.rooms.find(r => r.id === guest.roomId)
+    const room = getRoomByHotelAndIdOrNumber(hotel, guest.roomId)
     if (!room) {
       res.status(404).json({ success: false, error: '房间不存在' })
       return
@@ -136,7 +137,7 @@ router.post('/checkout', async (req: Request, res: Response): Promise<void> => {
       days = Math.max(1, Math.ceil(diffMs / 86400000))
     }
     const roomCharge = room.price * days
-    updateRoom(hotelId, guest.roomId, { status: 'vacant', guestId: undefined })
+    updateRoom(hotelId, room.id, { status: 'vacant', guestId: undefined })
     const updatedGuest = updateGuest(guestId, { roomId: undefined, checkOut: new Date() })
     const updatedHotel = updateHotel(hotelId, { totalRevenue: hotel.totalRevenue + roomCharge })
     res.status(200).json({ success: true, data: { guest: updatedGuest, hotel: updatedHotel, roomCharge } })
@@ -270,7 +271,7 @@ router.put('/:guestId/checkin', async (req: Request, res: Response): Promise<voi
       res.status(404).json({ success: false, error: '客人不存在' })
       return
     }
-    const hid = hotelId || getHotelIdByRoomId(roomId)
+    const hid = hotelId || getHotelIdByRoomIdOrNumber(roomId)
     if (!hid) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -280,7 +281,7 @@ router.put('/:guestId/checkin', async (req: Request, res: Response): Promise<voi
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
     }
-    const room = hotel.rooms.find(r => r.id === roomId)
+    const room = getRoomByHotelAndIdOrNumber(hotel, roomId)
     if (!room) {
       res.status(404).json({ success: false, error: '房间不存在' })
       return
@@ -289,8 +290,8 @@ router.put('/:guestId/checkin', async (req: Request, res: Response): Promise<voi
       res.status(400).json({ success: false, error: '房间已被占用' })
       return
     }
-    updateRoom(hid, roomId, { status: 'occupied', guestId })
-    const updatedGuest = updateGuest(guestId, { roomId, checkIn: new Date() })
+    updateRoom(hid, room.id, { status: 'occupied', guestId })
+    const updatedGuest = updateGuest(guestId, { roomId: room.id, checkIn: new Date() })
     const updatedHotel = getHotelById(hid)
     res.status(200).json({ success: true, data: { guest: updatedGuest, hotel: updatedHotel } })
   } catch (error) {
@@ -310,7 +311,7 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
       res.status(400).json({ success: false, error: '客人未入住' })
       return
     }
-    const hotelId = getHotelIdByRoomId(guest.roomId)
+    const hotelId = getHotelIdByRoomIdOrNumber(guest.roomId)
     if (!hotelId) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -320,7 +321,7 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
     }
-    const room = hotel.rooms.find(r => r.id === guest.roomId)
+    const room = getRoomByHotelAndIdOrNumber(hotel, guest.roomId)
     if (!room) {
       res.status(404).json({ success: false, error: '房间不存在' })
       return
@@ -331,7 +332,7 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
       days = Math.max(1, Math.ceil(diffMs / 86400000))
     }
     const roomCharge = room.price * days
-    updateRoom(hotelId, guest.roomId, { status: 'vacant', guestId: undefined })
+    updateRoom(hotelId, room.id, { status: 'vacant', guestId: undefined })
     const updatedGuest = updateGuest(guestId, { roomId: undefined, checkOut: new Date() })
     const updatedHotel = updateHotel(hotelId, { totalRevenue: hotel.totalRevenue + roomCharge })
     res.status(200).json({ success: true, data: { guest: updatedGuest, hotel: updatedHotel, roomCharge } })
@@ -339,15 +340,5 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
     res.status(500).json({ success: false, error: '办理退房失败' })
   }
 })
-
-function getHotelIdByRoomId(roomId: string): string | undefined {
-  const hotels = getAllHotels()
-  for (const hotel of hotels) {
-    if (hotel.rooms.some(r => r.id === roomId)) {
-      return hotel.id
-    }
-  }
-  return undefined
-}
 
 export default router

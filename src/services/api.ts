@@ -299,8 +299,8 @@ class ApiClient {
     ): Promise<ApiResponse<MarketListing>> =>
       this.post<MarketListing>(`/market/listings/${listingId}/buy`, { buyerId }),
 
-    cancelListing: (listingId: string): Promise<ApiResponse<void>> =>
-      this.delete<void>(`/market/listings/${listingId}`),
+    cancelListing: (listingId: string, sellerId: string): Promise<ApiResponse<void>> =>
+      this.delete<void>(`/market/listings/${listingId}?sellerId=${sellerId}`),
 
     getPriceSuggestion: (
       itemType: ItemType,

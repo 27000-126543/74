@@ -143,9 +143,17 @@ export default function Operations() {
   };
 
   const handleCheckOut = async (guestId: string) => {
-    setCheckOutLoading(guestId);
-    await checkOutGuest(guestId);
-    setCheckOutLoading(null);
+    try {
+      setCheckOutLoading(guestId);
+      const success = await checkOutGuest(guestId);
+      if (!success) {
+        console.error('[handleCheckOut] 退房失败');
+      }
+      setCheckOutLoading(null);
+    } catch (error) {
+      console.error('[handleCheckOut] 退房异常:', error);
+      setCheckOutLoading(null);
+    }
   };
 
   const vacantRooms = useMemo(() => {
@@ -334,7 +342,7 @@ export default function Operations() {
           ) : (
             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
               {checkedInGuests.map((guest) => {
-                const room = hotel?.rooms.find((r) => r.id === guest.roomId);
+                const room = hotel?.rooms.find((r) => r.id === guest.roomId || r.number === guest.roomId);
                 return (
                   <div
                     key={guest.id}
@@ -348,7 +356,7 @@ export default function Operations() {
                         <div>
                           <h3 className="font-semibold text-white">{guest.name}</h3>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="badge-emerald text-[10px]">房间 {room?.number || '未知'}</span>
+                            <span className="badge-emerald text-[10px]">房间 {guest.roomId}</span>
                             <span className="text-xs text-navy-300">{room?.type || ''}</span>
                           </div>
                         </div>

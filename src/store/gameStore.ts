@@ -638,15 +638,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     const res = await api.guests.checkIn(guestId, roomId);
     if (res.success && res.data) {
       set({
-        guests: get().guests.map((g) => (g.id === guestId ? res.data! : g)),
-        hotel: get().hotel
+        guests: get().guests.map((g) =>
+          g.id === guestId ? (res.data as any).guest ?? res.data! : g
+        ),
+        hotel: (res.data as any).hotel ?? (get().hotel
           ? {
               ...get().hotel!,
               rooms: get().hotel!.rooms.map((r) =>
-                r.id === roomId ? { ...r, status: 'occupied' as const, guestId } : r
+                r.id === roomId || r.number === roomId
+                  ? { ...r, status: 'occupied' as const, guestId }
+                  : r
               ),
             }
-          : null,
+          : null),
       });
       return true;
     }
@@ -656,22 +660,28 @@ export const useGameStore = create<GameState>((set, get) => ({
   checkOutGuest: async (guestId) => {
     const res = await api.guests.checkOut(guestId);
     if (res.success && res.data) {
-      const guest = get().guests.find((g) => g.id === guestId);
-      const roomId = guest?.roomId;
+      const payload = res.data as any;
+      const guestBefore = get().guests.find((g) => g.id === guestId);
+      const roomIdOrNumber = guestBefore?.roomId;
+      const updatedGuest = payload.guest ?? res.data;
+      const updatedHotel = payload.hotel;
+      const roomCharge = payload.roomCharge ?? 0;
+
       set({
-        guests: get().guests.map((g) => (g.id === guestId ? res.data! : g)),
-        hotel:
-          get().hotel && roomId
-            ? {
-                ...get().hotel!,
-                rooms: get().hotel!.rooms.map((r) =>
-                  r.id === roomId ? { ...r, status: 'vacant' as const, guestId: undefined } : r
-                ),
-                totalRevenue: (res.data as any).roomCharge
-                  ? get().hotel!.totalRevenue + (res.data as any).roomCharge
-                  : get().hotel!.totalRevenue,
-              }
-            : get().hotel,
+        guests: get().guests.map((g) => (g.id === guestId ? updatedGuest : g)),
+        hotel: updatedHotel
+          ? updatedHotel
+          : get().hotel && roomIdOrNumber
+          ? {
+              ...get().hotel!,
+              rooms: get().hotel!.rooms.map((r) =>
+                r.id === roomIdOrNumber || r.number === roomIdOrNumber
+                  ? { ...r, status: 'vacant' as const, guestId: undefined }
+                  : r
+              ),
+              totalRevenue: get().hotel!.totalRevenue + roomCharge,
+            }
+          : get().hotel,
       });
       return true;
     }
@@ -763,6 +773,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         marketListings: get().marketListings.filter((l) => l.id !== listingId),
       });
+      const buyerCoins = (res.data as any)?.buyerCoins;
+      if (buyerCoins !== undefined && get().player) {
+        set({ player: { ...get().player!, coins: buyerCoins } });
+      } else {
+        await get().fetchPlayer();
+      }
       return true;
     }
     return false;
@@ -782,7 +798,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   cancelListing: async (listingId) => {
-    const res = await api.market.cancelListing(listingId);
+    const playerId = get().player?.id;
+    if (!playerId) return false;
+    const res = await api.market.cancelListing(listingId, playerId);
     if (res.success) {
       set({
         marketListings: get().marketListings.filter((l) => l.id !== listingId),

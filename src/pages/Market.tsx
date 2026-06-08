@@ -16,6 +16,7 @@ import {
   Diamond,
   CircleDot,
   ArrowRightLeft,
+  X,
 } from 'lucide-react';
 import {
   LineChart,
@@ -58,7 +59,7 @@ const ANNOUNCEMENTS = [
 ];
 
 export default function Market() {
-  const { marketListings, createListing, buyItem, player, priceHistory, fetchPriceHistory, loading } = useGameStore();
+  const { marketListings, createListing, buyItem, cancelListing, player, priceHistory, fetchPriceHistory, loading } = useGameStore();
   const { calculateMarketPriceSuggestion } = useGameEngine();
 
   const [typeFilter, setTypeFilter] = useState<'all' | ItemType>('all');
@@ -448,7 +449,13 @@ export default function Market() {
                   </button>
                 )}
                 {isSeller && (
-                  <div className="text-center text-sm text-navy-400">您发布的商品</div>
+                  <button
+                    onClick={() => cancelListing(listing.id)}
+                    className="btn-secondary w-full !py-2 text-sm !bg-red-500/20 !text-red-400 !border-red-500/40 hover:!bg-red-500/30"
+                  >
+                    <X className="mr-2 inline h-4 w-4" />
+                    取消上架
+                  </button>
                 )}
               </div>
             );

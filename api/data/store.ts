@@ -628,11 +628,23 @@ export const addRoom = (hotelId: string, roomData: { type: string; floor: number
 export const updateRoom = (hotelId: string, roomId: string, updates: Partial<Room>): Room | undefined => {
   const hotel = getHotelById(hotelId)
   if (hotel) {
-    const index = hotel.rooms.findIndex(r => r.id === roomId)
+    const index = hotel.rooms.findIndex(r => r.id === roomId || r.number === roomId)
     if (index !== -1) {
       hotel.rooms[index] = { ...hotel.rooms[index], ...updates }
       return hotel.rooms[index]
     }
+  }
+  return undefined
+}
+
+export const getRoomByHotelAndIdOrNumber = (hotel: Hotel, roomIdOrNumber: string): Room | undefined => {
+  return hotel.rooms.find(r => r.id === roomIdOrNumber || r.number === roomIdOrNumber)
+}
+
+export const getHotelIdByRoomIdOrNumber = (roomIdOrNumber: string): string | undefined => {
+  for (const hotel of store.hotels) {
+    const found = hotel.rooms.find(r => r.id === roomIdOrNumber || r.number === roomIdOrNumber)
+    if (found) return hotel.id
   }
   return undefined
 }
