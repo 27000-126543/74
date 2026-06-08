@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useGameEngine } from '@/hooks/useGameEngine';
 import { BLUEPRINT_ITEMS, INGREDIENT_ITEMS, RARITY_CONFIG } from '../../shared/config';
@@ -58,7 +58,7 @@ const ANNOUNCEMENTS = [
 ];
 
 export default function Market() {
-  const { marketListings, createListing, buyItem, player } = useGameStore();
+  const { marketListings, createListing, buyItem, player, priceHistory, fetchPriceHistory, loading } = useGameStore();
   const { calculateMarketPriceSuggestion } = useGameEngine();
 
   const [typeFilter, setTypeFilter] = useState<'all' | ItemType>('all');
@@ -71,6 +71,10 @@ export default function Market() {
     price: 1000,
   });
 
+  useEffect(() => {
+    fetchPriceHistory();
+  }, [fetchPriceHistory]);
+
   const filteredListings = useMemo(() => {
     return marketListings.filter((listing) => {
       if (typeFilter !== 'all' && listing.itemType !== typeFilter) return false;
@@ -80,13 +84,16 @@ export default function Market() {
   }, [marketListings, typeFilter, rarityFilter]);
 
   const priceHistoryData = useMemo(() => {
+    if (priceHistory && priceHistory.length > 0) {
+      return priceHistory;
+    }
     const days = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     return days.map((day, i) => ({
       day,
       蓝图: 45000 + Math.sin(i) * 8000 + Math.random() * 5000,
       食材: 15000 + Math.cos(i) * 3000 + Math.random() * 2000,
     }));
-  }, []);
+  }, [priceHistory]);
 
   const availableItems =
     newListing.itemType === 'blueprint' ? BLUEPRINT_ITEMS : INGREDIENT_ITEMS;

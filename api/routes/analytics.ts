@@ -1,7 +1,38 @@
 import { Router, type Request, type Response } from 'express'
-import { getHotelById, getStaffByHotelId, type WeeklyReport } from '../data/store.js'
+import { getHotelById, getStaffByHotelId, type WeeklyReport, getAllHotels } from '../data/store.js'
 
 const router = Router()
+
+router.get('/:hotelId/dashboard', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { hotelId } = req.params
+    const hotel = getHotelById(hotelId)
+    if (!hotel) {
+      res.status(404).json({ success: false, data: null, error: '酒店不存在' })
+      return
+    }
+    const staff = getStaffByHotelId(hotelId)
+    const occupiedRooms = hotel.rooms.filter(r => r.status === 'occupied').length
+    const occupancyRate = hotel.rooms.length > 0
+      ? Math.round((occupiedRooms / hotel.rooms.length) * 100)
+      : 0
+    const dashboard = {
+      hotelId: hotel.id,
+      hotelName: hotel.name,
+      rating: hotel.rating,
+      totalRevenue: hotel.totalRevenue,
+      roomCount: hotel.rooms.length,
+      occupiedRooms,
+      occupancyRate,
+      staffCount: staff.length,
+      facilityCount: hotel.facilities.length,
+      comfortScore: hotel.comfortScore,
+    }
+    res.status(200).json({ success: true, data: dashboard, error: null })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取仪表盘数据失败' })
+  }
+})
 
 router.get('/:hotelId/weekly-report', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -97,6 +128,96 @@ router.get('/:hotelId/weekly-report', async (req: Request, res: Response): Promi
     res.status(200).json({ success: true, data: report, error: null })
   } catch (error) {
     res.status(500).json({ success: false, data: null, error: '生成周报失败' })
+  }
+})
+
+router.get('/:hotelId/revenue', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { hotelId } = req.params
+    const hotel = getHotelById(hotelId)
+    if (!hotel) {
+      res.status(404).json({ success: false, data: null, error: '酒店不存在' })
+      return
+    }
+    const revenueData = {
+      totalRevenue: hotel.totalRevenue,
+      todayRevenue: Math.round(hotel.totalRevenue / 30),
+      weekRevenue: Math.round(hotel.totalRevenue / 4.3),
+      monthRevenue: hotel.totalRevenue,
+      byRoomType: hotel.rooms.reduce((acc: any, room) => {
+        acc[room.type] = (acc[room.type] || 0) + (room.price * 0.7)
+        return acc
+      }, {}),
+    }
+    res.status(200).json({ success: true, data: revenueData, error: null })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取收入数据失败' })
+  }
+})
+
+router.get('/:hotelId/staff-performance', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { hotelId } = req.params
+    const staff = getStaffByHotelId(hotelId)
+    const performance = staff.map(s => ({
+      staffId: s.id,
+      name: s.name,
+      position: s.position,
+      level: s.level,
+      satisfaction: s.satisfaction,
+      fatigue: s.fatigue,
+      skills: s.skills,
+      performanceScore: Math.round(
+        (s.satisfaction * 0.3 +
+          (100 - s.fatigue) * 0.2 +
+          (s.skills.service + s.skills.efficiency + s.skills.friendliness + s.skills.professionalism) / 4 * 0.5)
+      ),
+    }))
+    res.status(200).json({ success: true, data: performance, error: null })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取员工绩效失败' })
+  }
+})
+
+router.get('/:hotelId/comparison', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { hotelId } = req.params
+    const hotel = getHotelById(hotelId)
+    if (!hotel) {
+      res.status(404).json({ success: false, data: null, error: '酒店不存在' })
+      return
+    }
+    const allHotels = getAllHotels()
+    const avgRating = allHotels.length > 0
+      ? allHotels.reduce((sum, h) => sum + h.rating, 0) / allHotels.length
+      : 0
+    const avgRevenue = allHotels.length > 0
+      ? allHotels.reduce((sum, h) => sum + h.totalRevenue, 0) / allHotels.length
+      : 0
+    const avgRooms = allHotels.length > 0
+      ? allHotels.reduce((sum, h) => sum + h.rooms.length, 0) / allHotels.length
+      : 0
+    const comparison = {
+      hotel: {
+        rating: hotel.rating,
+        totalRevenue: hotel.totalRevenue,
+        roomCount: hotel.rooms.length,
+      },
+      average: {
+        rating: Math.round(avgRating * 10) / 10,
+        totalRevenue: Math.round(avgRevenue),
+        roomCount: Math.round(avgRooms),
+      },
+      rank: {
+        rating: [...allHotels].sort((a, b) => b.rating - a.rating).findIndex(h => h.id === hotelId) + 1,
+        revenue: [...allHotels].sort((a, b) => b.totalRevenue - a.totalRevenue).findIndex(h => h.id === hotelId) + 1,
+        rooms: [...allHotels].sort((a, b) => b.rooms.length - a.rooms.length).findIndex(h => h.id === hotelId) + 1,
+      },
+      totalHotels: allHotels.length,
+    }
+    res.status(200).json({ success: true, data: comparison, error: null })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取对比数据失败' })
   }
 })
 

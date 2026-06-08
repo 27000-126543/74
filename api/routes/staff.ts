@@ -24,20 +24,6 @@ router.get('/hotel/:hotelId', async (req: Request, res: Response): Promise<void>
   }
 })
 
-router.get('/:staffId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { staffId } = req.params
-    const staff = getStaffById(staffId)
-    if (!staff) {
-      res.status(404).json({ success: false, error: '员工不存在' })
-      return
-    }
-    res.status(200).json({ success: true, data: staff })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取员工信息失败' })
-  }
-})
-
 router.get('/candidates', async (req: Request, res: Response): Promise<void> => {
   try {
     const { position } = req.query
@@ -77,6 +63,14 @@ router.get('/candidates', async (req: Request, res: Response): Promise<void> => 
   }
 })
 
+router.get('/config/positions', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    res.status(200).json({ success: true, data: STAFF_POSITIONS })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取职位配置失败' })
+  }
+})
+
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const { hotelId, name, position, avatar, skills, satisfaction, fatigue, salary, level, status, schedule } = req.body
@@ -107,6 +101,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ success: true, data: newStaff })
   } catch (error) {
     res.status(500).json({ success: false, error: '添加员工失败' })
+  }
+})
+
+router.get('/:staffId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { staffId } = req.params
+    const staff = getStaffById(staffId)
+    if (!staff) {
+      res.status(404).json({ success: false, error: '员工不存在' })
+      return
+    }
+    res.status(200).json({ success: true, data: staff })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取员工信息失败' })
   }
 })
 
@@ -191,14 +199,6 @@ router.put('/:staffId/rest', async (req: Request, res: Response): Promise<void> 
     res.status(200).json({ success: true, data: updated })
   } catch (error) {
     res.status(500).json({ success: false, error: '休息失败' })
-  }
-})
-
-router.get('/config/positions', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    res.status(200).json({ success: true, data: STAFF_POSITIONS })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取职位配置失败' })
   }
 })
 

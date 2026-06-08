@@ -28,6 +28,7 @@ import {
   TrendingUp,
   Info,
   Zap,
+  Pencil,
 } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import { useGameEngine } from '@/hooks/useGameEngine';
@@ -59,7 +60,11 @@ export default function Hotel() {
   const hotel = useGameStore((s) => s.hotel);
   const staffs = useGameStore((s) => s.staffs);
   const updateHotelStyle = useGameStore((s) => s.updateHotelStyle);
+  const updateHotelName = useGameStore((s) => s.updateHotelName);
   const addRoom = useGameStore((s) => s.addRoom);
+  const updateRoomPrice = useGameStore((s) => s.updateRoomPrice);
+  const upgradeFacility = useGameStore((s) => s.upgradeFacility);
+  const addFacility = useGameStore((s) => s.addFacility);
 
   const [selectedStyle, setSelectedStyle] = useState<HotelStyle>(
     hotel?.style || 'classical'
@@ -68,6 +73,22 @@ export default function Hotel() {
     standard: hotel?.rooms?.filter((r) => r.type === 'standard').length || 12,
     suite: hotel?.rooms?.filter((r) => r.type === 'suite').length || 8,
     villa: hotel?.rooms?.filter((r) => r.type === 'villa').length || 4,
+  });
+  const [editingName, setEditingName] = useState(false);
+  const [tempHotelName, setTempHotelName] = useState(hotel?.name || '');
+  const [roomPrices, setRoomPrices] = useState<Record<RoomType, number>>(() => {
+    const prices: Record<RoomType, number> = {
+      standard: 620,
+      suite: 1850,
+      villa: 6200,
+    };
+    if (hotel?.rooms) {
+      (Object.keys(prices) as RoomType[]).forEach((type) => {
+        const room = hotel.rooms.find((r) => r.type === type);
+        if (room) prices[type] = room.price;
+      });
+    }
+    return prices;
   });
 
   const { calculateHotelComfort, calculateOptimalPricing } = useGameEngine();
@@ -116,15 +137,68 @@ export default function Hotel() {
   const handleStyleSelect = async (style: HotelStyle) => {
     setSelectedStyle(style);
     if (hotel && hotel.style !== style) {
-      await updateHotelStyle(style);
+      try {
+        await updateHotelStyle(style);
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
-  const handleRoomChange = (type: RoomType, delta: number) => {
-    setRoomCounts((prev) => ({
-      ...prev,
-      [type]: Math.max(0, prev[type] + delta),
-    }));
+  const handleRoomChange = async (type: RoomType, delta: number) => {
+    if (delta > 0) {
+      try {
+        const success = await addRoom(type);
+        if (success) {
+          setRoomCounts((prev) => ({
+            ...prev,
+            [type]: prev[type] + delta,
+          }));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    } else {
+      setRoomCounts((prev) => ({
+        ...prev,
+        [type]: Math.max(0, prev[type] + delta),
+      }));
+    }
+  };
+
+  const handleSaveHotelName = async () => {
+    if (!tempHotelName.trim()) return;
+    try {
+      await updateHotelName(tempHotelName.trim());
+      setEditingName(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveRoomPrice = async (type: RoomType) => {
+    if (!hotel?.rooms) return;
+    const room = hotel.rooms.find((r) => r.type === type);
+    if (!room) return;
+    try {
+      await updateRoomPrice(room.id, roomPrices[type]);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleUpgradeFacility = async (type: FacilityType) => {
+    if (!hotel?.facilities) return;
+    const facility = hotel.facilities.find((f) => f.type === type);
+    try {
+      if (facility) {
+        await upgradeFacility(facility.id);
+      } else {
+        await addFacility(type);
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
@@ -134,9 +208,50 @@ export default function Hotel() {
           <h1 className="text-3xl font-bold font-display text-gradient-gold">
             酒店管理
           </h1>
-          <p className="text-navy-300 mt-1">
-            {hotel?.name || '金沙大酒店'} · 自定义你的奢华酒店
-          </p>
+          {editingName ? (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="text"
+                value={tempHotelName}
+                onChange={(e) => setTempHotelName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveHotelName();
+                }}
+                autoFocus
+                className="px-3 py-1.5 rounded-lg bg-navy-700/80 border border-gold-500/30 text-white text-sm focus:outline-none focus:border-gold-400/60"
+              />
+              <button
+                onClick={handleSaveHotelName}
+                className="px-3 py-1.5 rounded-lg bg-gold-gradient text-navy-700 text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                确认
+              </button>
+              <button
+                onClick={() => {
+                  setEditingName(false);
+                  setTempHotelName(hotel?.name || '');
+                }}
+                className="px-3 py-1.5 rounded-lg bg-navy-600/80 text-navy-200 text-sm hover:bg-navy-500/80 transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-navy-300">
+                {hotel?.name || '金沙大酒店'} · 自定义你的奢华酒店
+              </p>
+              <button
+                onClick={() => {
+                  setTempHotelName(hotel?.name || '');
+                  setEditingName(true);
+                }}
+                className="p-1 rounded-md text-navy-400 hover:text-gold-400 hover:bg-gold-500/10 transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -271,25 +386,71 @@ export default function Hotel() {
                       </button>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gold-500/10">
-                    <div>
-                      <p className="text-xs text-navy-400 mb-1">建议定价</p>
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-gold-400" />
-                        <span className="text-lg font-bold text-gradient-gold font-display">
-                          ¥{optimal.toLocaleString()}
-                        </span>
-                        <span className="text-xs text-emerald-500 flex items-center gap-0.5">
-                          <TrendingUp className="w-3 h-3" />
-                          最优
-                        </span>
+                  <div className="mt-4 pt-4 border-t border-gold-500/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-navy-400 mb-1">建议定价</p>
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-gold-400" />
+                          <span className="text-lg font-bold text-gradient-gold font-display">
+                            ¥{optimal.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-emerald-500 flex items-center gap-0.5">
+                            <TrendingUp className="w-3 h-3" />
+                            最优
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-navy-400 mb-1 text-right">每日收入</p>
+                        <p className="text-lg font-bold text-white font-display text-right">
+                          ¥{(roomPrices[typeKey] * count).toLocaleString()}
+                        </p>
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-navy-400 mb-1 text-right">每日收入</p>
-                      <p className="text-lg font-bold text-white font-display text-right">
-                        ¥{(optimal * count).toLocaleString()}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-navy-400 flex-shrink-0">实际价格</p>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() =>
+                            setRoomPrices((prev) => ({
+                              ...prev,
+                              [typeKey]: Math.max(0, prev[typeKey] - 50),
+                            }))
+                          }
+                          className="w-7 h-7 rounded-md bg-navy-600/80 border border-gold-500/20 text-gold-300 hover:border-gold-400/60 hover:bg-navy-500/80 transition-all flex items-center justify-center"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <input
+                          type="number"
+                          value={roomPrices[typeKey]}
+                          onChange={(e) =>
+                            setRoomPrices((prev) => ({
+                              ...prev,
+                              [typeKey]: Math.max(0, parseInt(e.target.value) || 0),
+                            }))
+                          }
+                          className="w-24 px-2 py-1 rounded-md bg-navy-700/80 border border-gold-500/20 text-white text-sm text-center focus:outline-none focus:border-gold-400/60"
+                        />
+                        <button
+                          onClick={() =>
+                            setRoomPrices((prev) => ({
+                              ...prev,
+                              [typeKey]: prev[typeKey] + 50,
+                            }))
+                          }
+                          className="w-7 h-7 rounded-md bg-navy-600/80 border border-gold-500/20 text-gold-300 hover:border-gold-400/60 hover:bg-navy-500/80 transition-all flex items-center justify-center"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => handleSaveRoomPrice(typeKey)}
+                        className="ml-auto px-3 py-1.5 rounded-md bg-gold-500/10 border border-gold-500/30 text-gold-300 text-xs font-medium hover:bg-gold-500/20 hover:border-gold-400/50 transition-all"
+                      >
+                        保存价格
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -404,6 +565,7 @@ export default function Hotel() {
                     舒适度 +{facility.comfortPerLevel * level}
                   </span>
                   <button
+                    onClick={() => handleUpgradeFacility(typeKey)}
                     disabled={level >= maxLevel}
                     className="flex items-center gap-1 text-gold-400 hover:text-gold-300 disabled:text-navy-500 disabled:cursor-not-allowed transition-colors"
                   >

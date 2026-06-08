@@ -6,6 +6,7 @@ import {
   updatePlayer,
   addGuild,
   updateGuild,
+  getAllGuilds,
   type GuildMember,
 } from '../data/store.js'
 import {
@@ -18,17 +19,32 @@ const GUILD_CREATE_COST = 50000
 const LEVEL_UP_CONTRIBUTION = 100000
 const BONUS_PER_LEVEL = 5
 
-router.get('/:guildId', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const { guildId } = req.params
-    const guild = getGuildById(guildId)
-    if (!guild) {
-      res.status(404).json({ success: false, data: null, error: '公会不存在' })
-      return
-    }
-    res.status(200).json({ success: true, data: guild, error: null })
+    const guilds = getAllGuilds()
+    res.status(200).json({ success: true, data: guilds, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, data: null, error: '获取公会详情失败' })
+    res.status(500).json({ success: false, data: null, error: '获取公会列表失败' })
+  }
+})
+
+router.get('/ranking', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const guilds = getAllGuilds()
+    const ranking = [...guilds]
+      .sort((a, b) => b.totalContribution - a.totalContribution)
+      .slice(0, 20)
+      .map((guild, index) => ({
+        rank: index + 1,
+        guildId: guild.id,
+        guildName: guild.name,
+        resortLevel: guild.resortLevel,
+        totalContribution: guild.totalContribution,
+        memberCount: guild.members.length,
+      }))
+    res.status(200).json({ success: true, data: ranking, error: null })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取公会排行榜失败' })
   }
 })
 
@@ -90,6 +106,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ success: true, data: newGuild, error: null })
   } catch (error) {
     res.status(500).json({ success: false, data: null, error: '创建公会失败' })
+  }
+})
+
+router.get('/:guildId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { guildId } = req.params
+    const guild = getGuildById(guildId)
+    if (!guild) {
+      res.status(404).json({ success: false, data: null, error: '公会不存在' })
+      return
+    }
+    res.status(200).json({ success: true, data: guild, error: null })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取公会详情失败' })
   }
 })
 

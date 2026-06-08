@@ -82,4 +82,134 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
   }
 })
 
+router.get('/all', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const players = getAllPlayers()
+    const hotels = getAllHotels()
+
+    const playerHotelMap = new Map<string, { player: Player; hotel: Hotel | undefined }>()
+    for (const player of players) {
+      playerHotelMap.set(player.id, {
+        player,
+        hotel: getHotelByPlayerId(player.id),
+      })
+    }
+
+    const withHotels = Array.from(playerHotelMap.values())
+      .filter(item => item.hotel !== undefined)
+
+    const ratingList = [...withHotels]
+      .sort((a, b) => (b.hotel!.rating - a.hotel!.rating))
+      .map((item, index) => ({
+        rank: index + 1,
+        playerId: item.player.id,
+        playerName: item.player.name,
+        avatar: item.player.avatar,
+        hotelId: item.hotel!.id,
+        hotelName: item.hotel!.name,
+        rating: item.hotel!.rating,
+      }))
+
+    res.status(200).json({
+      success: true,
+      data: ratingList,
+      error: null,
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取综合排行榜失败' })
+  }
+})
+
+router.get('/revenue', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const players = getAllPlayers()
+
+    const playerHotelMap = new Map<string, { player: Player; hotel: Hotel | undefined }>()
+    for (const player of players) {
+      playerHotelMap.set(player.id, {
+        player,
+        hotel: getHotelByPlayerId(player.id),
+      })
+    }
+
+    const withHotels = Array.from(playerHotelMap.values())
+      .filter(item => item.hotel !== undefined)
+
+    const revenueList = [...withHotels]
+      .sort((a, b) => (b.hotel!.totalRevenue - a.hotel!.totalRevenue))
+      .slice(0, 50)
+      .map((item, index) => ({
+        rank: index + 1,
+        playerId: item.player.id,
+        playerName: item.player.name,
+        avatar: item.player.avatar,
+        hotelId: item.hotel!.id,
+        hotelName: item.hotel!.name,
+        totalRevenue: item.hotel!.totalRevenue,
+      }))
+
+    res.status(200).json({
+      success: true,
+      data: revenueList,
+      error: null,
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取收入排行榜失败' })
+  }
+})
+
+router.get('/level', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const players = getAllPlayers()
+    const levelList = [...players]
+      .sort((a, b) => (b.level || 1) - (a.level || 1))
+      .slice(0, 50)
+      .map((player, index) => ({
+        rank: index + 1,
+        playerId: player.id,
+        playerName: player.name,
+        avatar: player.avatar,
+        level: player.level || 1,
+        exp: player.exp || 0,
+      }))
+
+    res.status(200).json({
+      success: true,
+      data: levelList,
+      error: null,
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取等级排行榜失败' })
+  }
+})
+
+router.get('/rooms', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const hotels = getAllHotels()
+    const roomsList = [...hotels]
+      .sort((a, b) => b.rooms.length - a.rooms.length)
+      .slice(0, 50)
+      .map((hotel, index) => {
+        const player = getPlayerById(hotel.playerId)
+        return {
+          rank: index + 1,
+          playerId: hotel.playerId,
+          playerName: player?.name || '',
+          avatar: player?.avatar || '',
+          hotelId: hotel.id,
+          hotelName: hotel.name,
+          roomCount: hotel.rooms.length,
+        }
+      })
+
+    res.status(200).json({
+      success: true,
+      data: roomsList,
+      error: null,
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, data: null, error: '获取房间数排行榜失败' })
+  }
+})
+
 export default router

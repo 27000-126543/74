@@ -58,6 +58,21 @@ router.get('/price-suggestion', async (req: Request, res: Response): Promise<voi
   }
 })
 
+router.get('/suggested-price', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { itemType, itemName, itemRarity } = req.query
+    if (!itemName || !itemRarity) {
+      res.status(400).json({ success: false, error: '缺少必要参数' })
+      return
+    }
+    const suggested = getSuggestedPrice(itemName as string, itemRarity as string)
+    const history = getPriceHistory(itemName as string)
+    res.status(200).json({ success: true, data: { ...suggested, history } })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取建议价格失败' })
+  }
+})
+
 router.get('/seller/:sellerId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { sellerId } = req.params
@@ -65,20 +80,6 @@ router.get('/seller/:sellerId', async (req: Request, res: Response): Promise<voi
     res.status(200).json({ success: true, data: listings })
   } catch (error) {
     res.status(500).json({ success: false, error: '获取卖家列表失败' })
-  }
-})
-
-router.get('/listings/:listingId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { listingId } = req.params
-    const listing = getMarketListingById(listingId)
-    if (!listing) {
-      res.status(404).json({ success: false, error: '商品不存在' })
-      return
-    }
-    res.status(200).json({ success: true, data: listing })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取商品详情失败' })
   }
 })
 
@@ -93,6 +94,20 @@ router.post('/listings', async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ success: true, data: result.listing })
   } catch (error) {
     res.status(500).json({ success: false, error: '发布商品失败' })
+  }
+})
+
+router.get('/listings/:listingId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { listingId } = req.params
+    const listing = getMarketListingById(listingId)
+    if (!listing) {
+      res.status(404).json({ success: false, error: '商品不存在' })
+      return
+    }
+    res.status(200).json({ success: true, data: listing })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取商品详情失败' })
   }
 })
 

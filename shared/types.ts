@@ -219,6 +219,18 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
+export interface PriceHistoryPoint {
+  day: string;
+  蓝图: number;
+  食材: number;
+}
+
+export interface PriceSuggestion {
+  min: number;
+  max: number;
+  average: number;
+}
+
 export interface Leaderboard {
   byRating: LeaderboardEntry[];
   byRevenue: LeaderboardEntry[];

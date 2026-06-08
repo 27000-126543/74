@@ -11,11 +11,13 @@ import Market from "@/pages/Market";
 import Guild from "@/pages/Guild";
 import Analytics from "@/pages/Analytics";
 import Leaderboard from "@/pages/Leaderboard";
+import { useGameStore } from "@/store/gameStore";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const [playerId, setPlayerId] = useState<string | null>(() => {
     return localStorage.getItem('playerId');
   });
+  const { player, fetchAll } = useGameStore();
 
   useEffect(() => {
     const checkStorage = () => {
@@ -24,6 +26,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
     window.addEventListener('storage', checkStorage);
     return () => window.removeEventListener('storage', checkStorage);
   }, []);
+
+  useEffect(() => {
+    if (playerId && !player?.id) {
+      fetchAll();
+    }
+  }, [playerId, player?.id, fetchAll]);
 
   if (!playerId) {
     return <Navigate to="/" replace />;

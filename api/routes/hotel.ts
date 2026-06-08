@@ -32,25 +32,6 @@ router.get('/player/:playerId', async (req: Request, res: Response): Promise<voi
   }
 })
 
-router.get('/:hotelId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { hotelId } = req.params
-    const hotel = getHotelById(hotelId)
-    if (!hotel) {
-      res.status(404).json({ success: false, error: '酒店不存在' })
-      return
-    }
-
-    const comfortScore = calculateComfortScore(hotel)
-    res.status(200).json({
-      success: true,
-      data: { ...hotel, comfortScore },
-    })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取酒店信息失败' })
-  }
-})
-
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const { playerId, name, style } = req.body
@@ -69,6 +50,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ success: true, data: newHotel })
   } catch (error) {
     res.status(500).json({ success: false, error: '创建酒店失败' })
+  }
+})
+
+router.get('/:hotelId', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { hotelId } = req.params
+    const hotel = getHotelById(hotelId)
+    if (!hotel) {
+      res.status(404).json({ success: false, error: '酒店不存在' })
+      return
+    }
+
+    const comfortScore = calculateComfortScore(hotel)
+    res.status(200).json({
+      success: true,
+      data: { ...hotel, comfortScore },
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, error: '获取酒店信息失败' })
   }
 })
 

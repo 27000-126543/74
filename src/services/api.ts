@@ -15,6 +15,8 @@ import type {
   ItemType,
   ItemRarity,
   PartyType,
+  PriceHistoryPoint,
+  PriceSuggestion,
 } from 'shared/types';
 
 const API_BASE = '/api';
@@ -25,9 +27,13 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE}${endpoint}`;
-    const defaultHeaders = {
+    const playerId = localStorage.getItem('playerId');
+    const defaultHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
     };
+    if (playerId) {
+      defaultHeaders['x-player-id'] = playerId;
+    }
 
     try {
       const response = await fetch(url, {
@@ -210,6 +216,9 @@ class ApiClient {
 
     autoAssign: (hotelId: string): Promise<ApiResponse<Guest[]>> =>
       this.post<Guest[]>(`/guests/hotel/${hotelId}/auto-assign`),
+
+    dailyTick: (hotelId: string): Promise<ApiResponse<{ guests: Guest[]; hotel: Hotel; staffs: Staff[] }>> =>
+      this.post<{ guests: Guest[]; hotel: Hotel; staffs: Staff[] }>(`/guests/hotel/${hotelId}/daily-tick`),
   };
 
   events = {
@@ -296,10 +305,17 @@ class ApiClient {
     getPriceSuggestion: (
       itemType: ItemType,
       itemRarity: ItemRarity
-    ): Promise<ApiResponse<{ min: number; max: number; average: number }>> =>
-      this.get<{ min: number; max: number; average: number }>(
+    ): Promise<ApiResponse<PriceSuggestion>> =>
+      this.get<PriceSuggestion>(
         `/market/price-suggestion?itemType=${itemType}&itemRarity=${itemRarity}`
       ),
+
+    getPriceHistory: (
+      itemType?: ItemType
+    ): Promise<ApiResponse<PriceHistoryPoint[]>> => {
+      const query = itemType ? `?itemType=${itemType}` : '';
+      return this.get<PriceHistoryPoint[]>(`/market/price-history${query}`);
+    },
   };
 
   guild = {

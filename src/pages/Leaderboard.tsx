@@ -58,13 +58,21 @@ const mockHotelDetail: { hotel: Hotel; staffs: Staff[] } = {
 };
 
 export default function Leaderboard() {
-  const { leaderboard, player, hotel, fetchLeaderboard, loading } = useGameStore();
+  const { leaderboard, player, hotel, fetchLeaderboard, loading, selectedHotelDetail, fetchHotelDetailByPlayerId, clearHotelDetail } = useGameStore();
   const [activeTab, setActiveTab] = useState<TabType>('rating');
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
 
   useEffect(() => {
     fetchLeaderboard();
   }, [fetchLeaderboard]);
+
+  useEffect(() => {
+    if (selectedEntry) {
+      fetchHotelDetailByPlayerId(selectedEntry.playerId);
+    } else {
+      clearHotelDetail();
+    }
+  }, [selectedEntry, fetchHotelDetailByPlayerId, clearHotelDetail]);
 
   const tabs = [
     { key: 'rating' as TabType, label: '酒店评分', icon: Star, dataKey: 'rating', suffix: '', format: (v: number) => v.toFixed(1) },
@@ -316,128 +324,140 @@ export default function Leaderboard() {
             </div>
 
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="stat-card text-center py-4">
-                  <Star className="w-6 h-6 text-gold-400 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-gold-400">
-                    {selectedEntry.rating.toFixed(1)}
-                  </p>
-                  <p className="text-xs text-navy-400 mt-1">综合评分</p>
+              {loading.hotelDetail ? (
+                <div className="py-16 text-center text-navy-300">
+                  加载酒店详情中...
                 </div>
-                <div className="stat-card text-center py-4">
-                  <DollarSign className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-emerald-500">
-                    ¥{(selectedEntry.totalRevenue / 10000).toFixed(1)}万
-                  </p>
-                  <p className="text-xs text-navy-400 mt-1">总收入</p>
-                </div>
-                <div className="stat-card text-center py-4">
-                  <BedDouble className="w-6 h-6 text-coral-500 mx-auto mb-2" />
-                  <p className="text-2xl font-bold text-coral-500">
-                    {selectedEntry.roomCount}
-                  </p>
-                  <p className="text-xs text-navy-400 mt-1">客房数</p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-                  <Building2 className="w-5 h-5 text-gold-400" />
-                  酒店布局
-                </h4>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {mockHotelDetail.hotel.rooms.map((room) => (
-                    <div
-                      key={room.id}
-                      className={cn(
-                        'p-3 rounded-xl border text-center',
-                        room.status === 'occupied'
-                          ? 'bg-wine-500/20 border-wine-500/30'
-                          : room.status === 'maintenance'
-                          ? 'bg-coral-500/20 border-coral-500/30'
-                          : 'bg-emerald-500/20 border-emerald-500/30'
-                      )}
-                    >
-                      <p className="font-semibold text-white">{room.number}</p>
-                      <p className="text-xs text-navy-300 capitalize">{room.type}</p>
-                      <p className="text-xs mt-1 text-navy-400">
-                        {room.status === 'occupied' ? '已入住' : room.status === 'maintenance' ? '维护中' : '空房'}
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="stat-card text-center py-4">
+                      <Star className="w-6 h-6 text-gold-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-gold-400">
+                        {selectedEntry.rating.toFixed(1)}
                       </p>
+                      <p className="text-xs text-navy-400 mt-1">综合评分</p>
                     </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {mockHotelDetail.hotel.facilities.map((facility) => (
-                    <div
-                      key={facility.id}
-                      className="badge-gold flex items-center gap-1 py-1.5"
-                    >
-                      <span className="capitalize">{facility.type}</span>
-                      <span className="text-gold-400">Lv.{facility.level}</span>
+                    <div className="stat-card text-center py-4">
+                      <DollarSign className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-emerald-500">
+                        ¥{(selectedEntry.totalRevenue / 10000).toFixed(1)}万
+                      </p>
+                      <p className="text-xs text-navy-400 mt-1">总收入</p>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="stat-card text-center py-4">
+                      <BedDouble className="w-6 h-6 text-coral-500 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-coral-500">
+                        {selectedEntry.roomCount}
+                      </p>
+                      <p className="text-xs text-navy-400 mt-1">客房数</p>
+                    </div>
+                  </div>
 
-              <div>
-                <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-                  <Users className="w-5 h-5 text-gold-400" />
-                  员工阵容
-                </h4>
-                <div className="space-y-3">
-                  {mockHotelDetail.staffs.map((staff) => (
-                    <div
-                      key={staff.id}
-                      className="glass-card p-3 flex items-center gap-3"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-navy-600 flex items-center justify-center">
-                        <User className="w-5 h-5 text-gold-400" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-white">{staff.name}</p>
-                        <p className="text-xs text-navy-400 capitalize">
-                          {staff.position} · Lv.{staff.level}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gold-400 font-medium">
-                          {Math.round(
-                            (staff.skills.service +
-                              staff.skills.efficiency +
-                              staff.skills.friendliness +
-                              staff.skills.professionalism) /
-                              4
+                  <div>
+                    <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                      <Building2 className="w-5 h-5 text-gold-400" />
+                      酒店布局
+                    </h4>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                      {(selectedHotelDetail?.hotel?.rooms || mockHotelDetail.hotel.rooms).map((room) => (
+                        <div
+                          key={room.id}
+                          className={cn(
+                            'p-3 rounded-xl border text-center',
+                            room.status === 'occupied'
+                              ? 'bg-wine-500/20 border-wine-500/30'
+                              : room.status === 'maintenance'
+                              ? 'bg-coral-500/20 border-coral-500/30'
+                              : 'bg-emerald-500/20 border-emerald-500/30'
                           )}
-                          分
+                        >
+                          <p className="font-semibold text-white">{room.number}</p>
+                          <p className="text-xs text-navy-300 capitalize">{room.type}</p>
+                          <p className="text-xs mt-1 text-navy-400">
+                            {room.status === 'occupied' ? '已入住' : room.status === 'maintenance' ? '维护中' : '空房'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {(selectedHotelDetail?.hotel?.facilities || mockHotelDetail.hotel.facilities).map((facility) => (
+                        <div
+                          key={facility.id}
+                          className="badge-gold flex items-center gap-1 py-1.5"
+                        >
+                          <span className="capitalize">{facility.type}</span>
+                          <span className="text-gold-400">Lv.{facility.level}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                      <Users className="w-5 h-5 text-gold-400" />
+                      员工阵容
+                    </h4>
+                    <div className="space-y-3">
+                      {(selectedHotelDetail?.staffs?.length ? selectedHotelDetail.staffs : mockHotelDetail.staffs).map((staff) => (
+                        <div
+                          key={staff.id}
+                          className="glass-card p-3 flex items-center gap-3"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-navy-600 flex items-center justify-center overflow-hidden">
+                            {staff.avatar ? (
+                              <img src={staff.avatar} alt={staff.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-5 h-5 text-gold-400" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-white">{staff.name}</p>
+                            <p className="text-xs text-navy-400 capitalize">
+                              {staff.position} · Lv.{staff.level}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gold-400 font-medium">
+                              {Math.round(
+                                (staff.skills.service +
+                                  staff.skills.efficiency +
+                                  staff.skills.friendliness +
+                                  staff.skills.professionalism) /
+                                  4
+                              )}
+                              分
+                            </p>
+                            <p className="text-xs text-navy-400">综合能力</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                      <TrendingUp className="w-5 h-5 text-gold-400" />
+                      经营数据
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="glass-card p-4">
+                        <p className="text-navy-400 text-sm mb-1">舒适度评分</p>
+                        <p className="text-2xl font-bold text-gold-400">
+                          {selectedHotelDetail?.hotel?.comfortScore ?? mockHotelDetail.hotel.comfortScore}
                         </p>
-                        <p className="text-xs text-navy-400">综合能力</p>
+                      </div>
+                      <div className="glass-card p-4">
+                        <p className="text-navy-400 text-sm mb-1">设施数量</p>
+                        <p className="text-2xl font-bold text-emerald-500">
+                          {(selectedHotelDetail?.hotel?.facilities || mockHotelDetail.hotel.facilities).length}
+                        </p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-gold-400" />
-                  经营数据
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="glass-card p-4">
-                    <p className="text-navy-400 text-sm mb-1">舒适度评分</p>
-                    <p className="text-2xl font-bold text-gold-400">
-                      {mockHotelDetail.hotel.comfortScore}
-                    </p>
                   </div>
-                  <div className="glass-card p-4">
-                    <p className="text-navy-400 text-sm mb-1">设施数量</p>
-                    <p className="text-2xl font-bold text-emerald-500">
-                      {mockHotelDetail.hotel.facilities.length}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>

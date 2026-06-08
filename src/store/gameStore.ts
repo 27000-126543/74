@@ -15,6 +15,7 @@ import type {
   ItemType,
   ItemRarity,
   PartyType,
+  PriceHistoryPoint,
 } from 'shared/types';
 import { api } from '@/services/api';
 
@@ -26,9 +27,11 @@ interface LoadingState {
   events: boolean;
   parties: boolean;
   marketListings: boolean;
+  priceHistory: boolean;
   guild: boolean;
   weeklyReport: boolean;
   leaderboard: boolean;
+  hotelDetail: boolean;
 }
 
 interface ErrorState {
@@ -39,9 +42,11 @@ interface ErrorState {
   events?: string;
   parties?: string;
   marketListings?: string;
+  priceHistory?: string;
   guild?: string;
   weeklyReport?: string;
   leaderboard?: string;
+  hotelDetail?: string;
 }
 
 interface GameState {
@@ -52,9 +57,11 @@ interface GameState {
   events: GameEvent[];
   parties: PartyEvent[];
   marketListings: MarketListing[];
+  priceHistory: PriceHistoryPoint[] | null;
   guild: Guild | null;
   weeklyReport: WeeklyReport | null;
   leaderboard: Leaderboard | null;
+  selectedHotelDetail: { hotel: Hotel | null; staffs: Staff[] } | null;
   loading: LoadingState;
   errors: ErrorState;
 
@@ -73,6 +80,10 @@ interface GameState {
     minPrice?: number;
     maxPrice?: number;
   }) => Promise<void>;
+  fetchPriceHistory: (itemType?: ItemType) => Promise<void>;
+  fetchHotelDetail: (hotelId: string) => Promise<void>;
+  fetchHotelDetailByPlayerId: (playerId: string) => Promise<void>;
+  clearHotelDetail: () => void;
   fetchGuild: (playerId?: string) => Promise<void>;
   fetchWeeklyReport: (hotelId?: string) => Promise<void>;
   fetchLeaderboard: () => Promise<void>;
@@ -101,6 +112,7 @@ interface GameState {
   checkInGuest: (guestId: string, roomId: string) => Promise<boolean>;
   checkOutGuest: (guestId: string) => Promise<boolean>;
   autoAssignGuests: () => Promise<boolean>;
+  dailyTick: () => Promise<boolean>;
 
   resolveEvent: (eventId: string, optionId: string) => Promise<boolean>;
 
@@ -140,9 +152,11 @@ const initialLoading: LoadingState = {
   events: false,
   parties: false,
   marketListings: false,
+  priceHistory: false,
   guild: false,
   weeklyReport: false,
   leaderboard: false,
+  hotelDetail: false,
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -153,9 +167,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   events: [],
   parties: [],
   marketListings: [],
+  priceHistory: null,
   guild: null,
   weeklyReport: null,
   leaderboard: null,
+  selectedHotelDetail: null,
   loading: { ...initialLoading },
   errors: {},
 
@@ -169,7 +185,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (res.success && res.data) {
         set({ player: res.data });
       } else {
-        set({ errors: { ...get().errors, player: res.error } });
+        const playerName = localStorage.getItem('playerName');
+        if (playerName) {
+          const loginRes = await api.auth.login(playerName);
+          if (loginRes.success && loginRes.data) {
+            localStorage.setItem('playerId', loginRes.data.id);
+            set({ player: loginRes.data });
+          } else {
+            set({ errors: { ...get().errors, player: res.error } });
+          }
+        } else {
+          set({ errors: { ...get().errors, player: res.error } });
+        }
       }
     } catch (error) {
       set({ errors: { ...get().errors, player: error instanceof Error ? error.message : 'Unknown error' } });
@@ -288,6 +315,72 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  fetchPriceHistory: async (itemType) => {
+    set({ loading: { ...get().loading, priceHistory: true }, errors: { ...get().errors, priceHistory: undefined } });
+    try {
+      const res = await api.market.getPriceHistory(itemType);
+      if (res.success && res.data) {
+        set({ priceHistory: res.data });
+      } else {
+        set({ priceHistory: null, errors: { ...get().errors, priceHistory: res.error } });
+      }
+    } catch (error) {
+      set({ priceHistory: null, errors: { ...get().errors, priceHistory: error instanceof Error ? error.message : 'Unknown error' } });
+    } finally {
+      set({ loading: { ...get().loading, priceHistory: false } });
+    }
+  },
+
+  fetchHotelDetail: async (hotelId) => {
+    set({ loading: { ...get().loading, hotelDetail: true }, errors: { ...get().errors, hotelDetail: undefined } });
+    try {
+      const [hotelRes, staffRes] = await Promise.all([
+        api.hotel.getById(hotelId),
+        api.staff.getByHotel(hotelId),
+      ]);
+      if (hotelRes.success) {
+        set({
+          selectedHotelDetail: {
+            hotel: hotelRes.data || null,
+            staffs: staffRes.success && staffRes.data ? staffRes.data : [],
+          },
+        });
+      } else {
+        set({ selectedHotelDetail: null, errors: { ...get().errors, hotelDetail: hotelRes.error } });
+      }
+    } catch (error) {
+      set({ selectedHotelDetail: null, errors: { ...get().errors, hotelDetail: error instanceof Error ? error.message : 'Unknown error' } });
+    } finally {
+      set({ loading: { ...get().loading, hotelDetail: false } });
+    }
+  },
+
+  fetchHotelDetailByPlayerId: async (playerId) => {
+    set({ loading: { ...get().loading, hotelDetail: true }, errors: { ...get().errors, hotelDetail: undefined } });
+    try {
+      const hotelRes = await api.hotel.getByPlayer(playerId);
+      if (hotelRes.success && hotelRes.data) {
+        const staffRes = await api.staff.getByHotel(hotelRes.data.id);
+        set({
+          selectedHotelDetail: {
+            hotel: hotelRes.data,
+            staffs: staffRes.success && staffRes.data ? staffRes.data : [],
+          },
+        });
+      } else {
+        set({ selectedHotelDetail: null, errors: { ...get().errors, hotelDetail: hotelRes.error } });
+      }
+    } catch (error) {
+      set({ selectedHotelDetail: null, errors: { ...get().errors, hotelDetail: error instanceof Error ? error.message : 'Unknown error' } });
+    } finally {
+      set({ loading: { ...get().loading, hotelDetail: false } });
+    }
+  },
+
+  clearHotelDetail: () => {
+    set({ selectedHotelDetail: null, errors: { ...get().errors, hotelDetail: undefined } });
+  },
+
   fetchGuild: async (playerId) => {
     const pid = playerId || get().player?.id;
     if (!pid) return;
@@ -341,19 +434,23 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   fetchAll: async () => {
-    const state = get();
-    if (!state.player?.id) {
-      await state.fetchPlayer();
+    if (!get().player?.id) {
+      await get().fetchPlayer();
+    }
+    if (!get().hotel?.id) {
+      await get().fetchHotel();
+    }
+    if (!get().hotel?.id) {
+      await get().createHotel(`${get().player?.name || '我的'}酒店`, 'modern');
     }
     await Promise.all([
-      state.fetchHotel(),
-      state.fetchStaff(),
-      state.fetchGuests(),
-      state.fetchEvents(),
-      state.fetchParties(),
-      state.fetchMarketListings(),
-      state.fetchGuild(),
-      state.fetchLeaderboard(),
+      get().fetchStaff(),
+      get().fetchGuests(),
+      get().fetchEvents(),
+      get().fetchParties(),
+      get().fetchMarketListings(),
+      get().fetchGuild(),
+      get().fetchLeaderboard(),
     ]);
   },
 
@@ -471,6 +568,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     try {
       const candidatesRes = await api.staff.getCandidates(position);
       if (!candidatesRes.success || !candidatesRes.data || candidatesRes.data.length === 0) {
+        console.error('[hireStaff] 获取候选人失败:', candidatesRes);
         return false;
       }
       const randomIndex = Math.floor(Math.random() * candidatesRes.data.length);
@@ -480,8 +578,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ staffs: [...get().staffs, res.data] });
         return true;
       }
+      console.error('[hireStaff] 招聘失败:', res);
       return false;
     } catch (error) {
+      console.error('[hireStaff] 异常:', error);
       return false;
     }
   },
@@ -566,6 +666,21 @@ export const useGameStore = create<GameState>((set, get) => ({
     const res = await api.guests.autoAssign(hotelId);
     if (res.success && res.data) {
       set({ guests: res.data });
+      return true;
+    }
+    return false;
+  },
+
+  dailyTick: async () => {
+    const hotelId = get().hotel?.id;
+    if (!hotelId) return false;
+    const res = await api.guests.dailyTick(hotelId);
+    if (res.success && res.data) {
+      set({
+        guests: res.data.guests,
+        hotel: res.data.hotel,
+        staffs: res.data.staffs,
+      });
       return true;
     }
     return false;
@@ -723,9 +838,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       events: [],
       parties: [],
       marketListings: [],
+      priceHistory: null,
       guild: null,
       weeklyReport: null,
       leaderboard: null,
+      selectedHotelDetail: null,
       loading: { ...initialLoading },
       errors: {},
     });

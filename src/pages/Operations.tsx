@@ -16,6 +16,7 @@ import {
   Gauge,
   Activity,
   DollarSign,
+  Calendar,
 } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import { useGameEngine } from '@/hooks/useGameEngine';
@@ -43,12 +44,14 @@ export default function Operations() {
     autoAssignGuests,
     checkInGuest,
     resolveEvent,
+    dailyTick,
   } = useGameStore();
   const { calculateOccupancyRate, autoAssignRooms, calculateStaffImpact } = useGameEngine();
 
   const [assigning, setAssigning] = useState(false);
   const [assignResult, setAssignResult] = useState<Array<{ guestId: string; roomId: string }> | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<GameEvent | null>(null);
+  const [dailyTickLoading, setDailyTickLoading] = useState(false);
 
   const waitingGuests = useMemo(() => guests.filter((g) => !g.roomId), [guests]);
   const checkedInGuests = useMemo(() => guests.filter((g) => g.roomId), [guests]);
@@ -105,6 +108,12 @@ export default function Operations() {
   const handleResolveEvent = async (eventId: string, optionId: string) => {
     await resolveEvent(eventId, optionId);
     setSelectedEvent(null);
+  };
+
+  const handleDailyTick = async () => {
+    setDailyTickLoading(true);
+    await dailyTick();
+    setDailyTickLoading(false);
   };
 
   return (
@@ -172,14 +181,24 @@ export default function Operations() {
               <h2 className="text-xl font-semibold text-white">等待入住客人</h2>
               <span className="badge-gold ml-1">{waitingGuests.length} 人</span>
             </div>
-            <button
-              onClick={handleAutoAssign}
-              disabled={assigning || waitingGuests.length === 0}
-              className="btn-primary py-2 px-4 text-sm flex items-center gap-2"
-            >
-              <UserCheck className="w-4 h-4" />
-              {assigning ? '分房中...' : '自动分房'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDailyTick}
+                disabled={dailyTickLoading}
+                className="btn-primary py-2 px-4 text-sm flex items-center gap-2"
+              >
+                <Calendar className="w-4 h-4" />
+                {dailyTickLoading ? '结算中...' : '每日结算'}
+              </button>
+              <button
+                onClick={handleAutoAssign}
+                disabled={assigning || waitingGuests.length === 0}
+                className="btn-primary py-2 px-4 text-sm flex items-center gap-2"
+              >
+                <UserCheck className="w-4 h-4" />
+                {assigning ? '分房中...' : '自动分房'}
+              </button>
+            </div>
           </div>
 
           {assignResult && (
