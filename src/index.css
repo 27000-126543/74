@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Manrope:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: dark;
+  color: #F0F3F7;
+  background-color: #1A2332;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #1A2332 0%, #141B27 50%, #0E131B 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141B27;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #D4AE66 0%, #B08C3E 100%);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #C9A962 0%, #8C6E30 100%);
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-navy-700/60 backdrop-blur-xl border border-gold-500/20 rounded-2xl shadow-card;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 bg-gold-gradient text-navy-700 font-semibold rounded-xl
+           hover:shadow-luxury hover:-translate-y-0.5 transition-all duration-200
+           active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 bg-navy-600/80 text-gold-300 font-medium rounded-xl border border-gold-500/30
+           hover:border-gold-400/60 hover:bg-navy-500/80 transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply px-6 py-3 bg-wine-500 text-white font-semibold rounded-xl
+           hover:bg-wine-600 transition-all duration-200;
+  }
+
+  .text-gradient-gold {
+    @apply bg-gold-gradient bg-clip-text text-transparent;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-navy-800/60 border border-gold-500/20 rounded-xl
+           text-white placeholder-navy-300 focus:outline-none focus:border-gold-400/60
+           focus:ring-1 focus:ring-gold-400/30 transition-all;
+  }
+
+  .stat-card {
+    @apply glass-card p-6 hover:shadow-luxury transition-all duration-300;
+  }
+
+  .badge-gold {
+    @apply px-3 py-1 bg-gold-500/20 text-gold-300 text-xs font-medium rounded-full border border-gold-500/30;
+  }
+
+  .badge-emerald {
+    @apply px-3 py-1 bg-emerald-500/20 text-emerald-500 text-xs font-medium rounded-full border border-emerald-500/30;
+  }
+
+  .badge-wine {
+    @apply px-3 py-1 bg-wine-500/20 text-wine-500 text-xs font-medium rounded-full border border-wine-500/30;
+  }
+
+  .badge-coral {
+    @apply px-3 py-1 bg-coral-500/20 text-coral-500 text-xs font-medium rounded-full border border-coral-500/30;
+  }
+}
