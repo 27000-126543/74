@@ -279,6 +279,7 @@ class ApiClient {
         itemName: string;
         itemRarity: ItemRarity;
         price: number;
+        sellerName: string;
       }
     ): Promise<ApiResponse<MarketListing>> =>
       this.post<MarketListing>('/market/listings', { sellerId, ...data }),

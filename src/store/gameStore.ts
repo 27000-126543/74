@@ -120,7 +120,6 @@ interface GameState {
     itemName: string;
     itemRarity: ItemRarity;
     price: number;
-    sellerName?: string;
   }) => Promise<boolean>;
   cancelListing: (listingId: string) => Promise<boolean>;
 

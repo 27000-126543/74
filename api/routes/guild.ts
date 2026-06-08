@@ -1,39 +1,34 @@
 import { Router, type Request, type Response } from 'express'
 import {
-  getAllGuilds,
   getGuildById,
   getGuildByPlayerId,
+  getPlayerById,
+  updatePlayer,
+  addGuild,
   updateGuild,
+  type GuildMember,
 } from '../data/store.js'
 import {
-  createGuild,
-  joinGuild,
-  leaveGuild,
-  contributeToGuild,
-  transferLeadership,
-  getGuildDetails,
-  getGuildRanking,
-  getMemberRanking,
-  upgradeGuildResort as upgradeResortService,
+  upgradeGuildResort,
 } from '../services/guildService.js'
 
 const router = Router()
 
-router.get('/', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const guilds = getAllGuilds()
-    res.status(200).json({ success: true, data: guilds })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取公会列表失败' })
-  }
-})
+const GUILD_CREATE_COST = 50000
+const LEVEL_UP_CONTRIBUTION = 100000
+const BONUS_PER_LEVEL = 5
 
-router.get('/ranking', async (_req: Request, res: Response): Promise<void> => {
+router.get('/:guildId', async (req: Request, res: Response): Promise<void> => {
   try {
-    const ranking = getGuildRanking()
-    res.status(200).json({ success: true, data: ranking })
+    const { guildId } = req.params
+    const guild = getGuildById(guildId)
+    if (!guild) {
+      res.status(404).json({ success: false, data: null, error: '公会不存在' })
+      return
+    }
+    res.status(200).json({ success: true, data: guild, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '获取公会排名失败' })
+    res.status(500).json({ success: false, data: null, error: '获取公会详情失败' })
   }
 })
 
@@ -41,52 +36,60 @@ router.get('/player/:playerId', async (req: Request, res: Response): Promise<voi
   try {
     const { playerId } = req.params
     const guild = getGuildByPlayerId(playerId)
-    if (!guild) {
-      res.status(200).json({ success: true, data: null })
-      return
-    }
-    const details = getGuildDetails(guild.id)
-    res.status(200).json({ success: true, data: details })
+    res.status(200).json({ success: true, data: guild || null, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '获取玩家公会信息失败' })
-  }
-})
-
-router.get('/:guildId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { guildId } = req.params
-    const guild = getGuildDetails(guildId)
-    if (!guild) {
-      res.status(404).json({ success: false, error: '公会不存在' })
-      return
-    }
-    res.status(200).json({ success: true, data: guild })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取公会详情失败' })
-  }
-})
-
-router.get('/:guildId/members/ranking', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { guildId } = req.params
-    const ranking = getMemberRanking(guildId)
-    res.status(200).json({ success: true, data: ranking })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '获取成员排名失败' })
+    res.status(500).json({ success: false, data: null, error: '获取玩家公会信息失败' })
   }
 })
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const { leaderId, name } = req.body
-    const result = createGuild(leaderId, name)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+    if (!leaderId || !name) {
+      res.status(400).json({ success: false, data: null, error: '缺少必要参数' })
       return
     }
-    res.status(201).json({ success: true, data: result.guild })
+
+    const leader = getPlayerById(leaderId)
+    if (!leader) {
+      res.status(404).json({ success: false, data: null, error: '玩家不存在' })
+      return
+    }
+
+    if (leader.guildId) {
+      res.status(400).json({ success: false, data: null, error: '玩家已在公会中' })
+      return
+    }
+
+    if (leader.coins < GUILD_CREATE_COST) {
+      res.status(400).json({ success: false, data: null, error: '金币不足，创建公会需要50000金币' })
+      return
+    }
+
+    updatePlayer(leaderId, { coins: leader.coins - GUILD_CREATE_COST })
+
+    const leaderMember: GuildMember = {
+      playerId: leaderId,
+      playerName: leader.name,
+      contribution: 0,
+      joinDate: new Date(),
+    }
+
+    const newGuild = addGuild({
+      name,
+      leaderId,
+      members: [leaderMember],
+      resortLevel: 1,
+      totalContribution: 0,
+      visitorBonus: 5,
+      revenueBonus: 5,
+    })
+
+    updatePlayer(leaderId, { guildId: newGuild.id })
+
+    res.status(201).json({ success: true, data: newGuild, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '创建公会失败' })
+    res.status(500).json({ success: false, data: null, error: '创建公会失败' })
   }
 })
 
@@ -94,14 +97,50 @@ router.post('/:guildId/join', async (req: Request, res: Response): Promise<void>
   try {
     const { guildId } = req.params
     const { playerId } = req.body
-    const result = joinGuild(guildId, playerId)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+
+    if (!playerId) {
+      res.status(400).json({ success: false, data: null, error: '缺少 playerId' })
       return
     }
-    res.status(200).json({ success: true, data: result.guild })
+
+    const guild = getGuildById(guildId)
+    if (!guild) {
+      res.status(404).json({ success: false, data: null, error: '公会不存在' })
+      return
+    }
+
+    const player = getPlayerById(playerId)
+    if (!player) {
+      res.status(404).json({ success: false, data: null, error: '玩家不存在' })
+      return
+    }
+
+    if (player.guildId) {
+      res.status(400).json({ success: false, data: null, error: '玩家已在公会中' })
+      return
+    }
+
+    const newMember: GuildMember = {
+      playerId,
+      playerName: player.name,
+      contribution: 0,
+      joinDate: new Date(),
+    }
+
+    const updated = updateGuild(guildId, {
+      members: [...guild.members, newMember],
+    })
+
+    if (!updated) {
+      res.status(404).json({ success: false, data: null, error: '加入公会失败' })
+      return
+    }
+
+    updatePlayer(playerId, { guildId })
+
+    res.status(200).json({ success: true, data: updated, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '加入公会失败' })
+    res.status(500).json({ success: false, data: null, error: '加入公会失败' })
   }
 })
 
@@ -109,14 +148,37 @@ router.post('/:guildId/leave', async (req: Request, res: Response): Promise<void
   try {
     const { guildId } = req.params
     const { playerId } = req.body
-    const result = leaveGuild(playerId)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+
+    if (!playerId) {
+      res.status(400).json({ success: false, data: null, error: '缺少 playerId' })
       return
     }
-    res.status(200).json({ success: true })
+
+    const guild = getGuildById(guildId)
+    if (!guild) {
+      res.status(404).json({ success: false, data: null, error: '公会不存在' })
+      return
+    }
+
+    if (guild.leaderId === playerId) {
+      res.status(400).json({ success: false, data: null, error: '公会会长不能退出公会' })
+      return
+    }
+
+    const updated = updateGuild(guildId, {
+      members: guild.members.filter(m => m.playerId !== playerId),
+    })
+
+    if (!updated) {
+      res.status(404).json({ success: false, data: null, error: '退出公会失败' })
+      return
+    }
+
+    updatePlayer(playerId, { guildId: undefined })
+
+    res.status(200).json({ success: true, data: updated, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '离开公会失败' })
+    res.status(500).json({ success: false, data: null, error: '退出公会失败' })
   }
 })
 
@@ -124,45 +186,68 @@ router.post('/:guildId/contribute', async (req: Request, res: Response): Promise
   try {
     const { guildId } = req.params
     const { playerId, amount } = req.body
-    const result = contributeToGuild(playerId, amount)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+
+    if (!playerId || !amount) {
+      res.status(400).json({ success: false, data: null, error: '缺少必要参数' })
       return
     }
-    const guild = getGuildDetails(guildId)
-    res.status(200).json({ success: true, data: guild })
+
+    const guild = getGuildById(guildId)
+    if (!guild) {
+      res.status(404).json({ success: false, data: null, error: '公会不存在' })
+      return
+    }
+
+    const player = getPlayerById(playerId)
+    if (!player) {
+      res.status(404).json({ success: false, data: null, error: '玩家不存在' })
+      return
+    }
+
+    if (player.coins < amount) {
+      res.status(400).json({ success: false, data: null, error: '金币不足' })
+      return
+    }
+
+    updatePlayer(playerId, { coins: player.coins - amount })
+
+    const updatedMembers = guild.members.map(m =>
+      m.playerId === playerId ? { ...m, contribution: m.contribution + amount } : m
+    )
+    const updated = updateGuild(guildId, {
+      members: updatedMembers,
+      totalContribution: guild.totalContribution + amount,
+    })
+
+    if (!updated) {
+      res.status(404).json({ success: false, data: null, error: '捐献失败' })
+      return
+    }
+
+    res.status(200).json({ success: true, data: updated, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '贡献失败' })
+    res.status(500).json({ success: false, data: null, error: '捐献失败' })
   }
 })
 
 router.put('/:guildId/upgrade', async (req: Request, res: Response): Promise<void> => {
   try {
     const { guildId } = req.params
-    const result = upgradeResortService(guildId)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+    const guild = getGuildById(guildId)
+    if (!guild) {
+      res.status(404).json({ success: false, data: null, error: '公会不存在' })
       return
     }
-    const guild = getGuildDetails(guildId)
-    res.status(200).json({ success: true, data: guild })
-  } catch (error) {
-    res.status(500).json({ success: false, error: '升级公会度假村失败' })
-  }
-})
 
-router.post('/:guildId/transfer', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { guildId } = req.params
-    const { currentLeaderId, newLeaderId } = req.body
-    const result = transferLeadership(guildId, currentLeaderId, newLeaderId)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+    const updated = upgradeGuildResort(guildId)
+    if (!updated) {
+      res.status(400).json({ success: false, data: null, error: '升级失败：贡献值不足或已达最大等级' })
       return
     }
-    res.status(200).json({ success: true })
+
+    res.status(200).json({ success: true, data: updated, error: null })
   } catch (error) {
-    res.status(500).json({ success: false, error: '转让会长失败' })
+    res.status(500).json({ success: false, data: null, error: '升级公会度假村失败' })
   }
 })
 
