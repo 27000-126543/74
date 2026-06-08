@@ -244,7 +244,7 @@ router.post('/:guildId/contribute', async (req: Request, res: Response): Promise
     const updatedMembers = guild.members.map(m =>
       m.playerId === playerId ? { ...m, contribution: m.contribution + amount } : m
     )
-    const updated = updateGuild(guildId, {
+    let updated = updateGuild(guildId, {
       members: updatedMembers,
       totalContribution: guild.totalContribution + amount,
     })
@@ -253,6 +253,12 @@ router.post('/:guildId/contribute', async (req: Request, res: Response): Promise
       res.status(404).json({ success: false, data: null, error: '捐献失败' })
       return
     }
+
+    let newLevel = Math.floor(updated.totalContribution / LEVEL_UP_CONTRIBUTION) + 1
+    newLevel = Math.min(newLevel, 10)
+    const visitorBonus = (newLevel - 1) * BONUS_PER_LEVEL + 5
+    const revenueBonus = (newLevel - 1) * BONUS_PER_LEVEL + 5
+    updated = updateGuild(guildId, { resortLevel: newLevel, visitorBonus, revenueBonus }) || updated
 
     res.status(200).json({ success: true, data: updated, error: null })
   } catch (error) {

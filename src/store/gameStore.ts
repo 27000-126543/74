@@ -638,9 +638,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     const res = await api.guests.checkIn(guestId, roomId);
     if (res.success && res.data) {
       set({
-        guests: get().guests.map((g) =>
-          g.id === guestId ? res.data! : g
-        ),
+        guests: get().guests.map((g) => (g.id === guestId ? res.data! : g)),
+        hotel: get().hotel
+          ? {
+              ...get().hotel!,
+              rooms: get().hotel!.rooms.map((r) =>
+                r.id === roomId ? { ...r, status: 'occupied' as const, guestId } : r
+              ),
+            }
+          : null,
       });
       return true;
     }
@@ -650,10 +656,22 @@ export const useGameStore = create<GameState>((set, get) => ({
   checkOutGuest: async (guestId) => {
     const res = await api.guests.checkOut(guestId);
     if (res.success && res.data) {
+      const guest = get().guests.find((g) => g.id === guestId);
+      const roomId = guest?.roomId;
       set({
-        guests: get().guests.map((g) =>
-          g.id === guestId ? res.data! : g
-        ),
+        guests: get().guests.map((g) => (g.id === guestId ? res.data! : g)),
+        hotel:
+          get().hotel && roomId
+            ? {
+                ...get().hotel!,
+                rooms: get().hotel!.rooms.map((r) =>
+                  r.id === roomId ? { ...r, status: 'vacant' as const, guestId: undefined } : r
+                ),
+                totalRevenue: (res.data as any).roomCharge
+                  ? get().hotel!.totalRevenue + (res.data as any).roomCharge
+                  : get().hotel!.totalRevenue,
+              }
+            : get().hotel,
       });
       return true;
     }
@@ -666,6 +684,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const res = await api.guests.autoAssign(hotelId);
     if (res.success && res.data) {
       set({ guests: res.data });
+      await get().fetchHotel();
       return true;
     }
     return false;

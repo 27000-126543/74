@@ -71,9 +71,9 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
     res.status(200).json({
       success: true,
       data: {
-        rating: ratingList,
-        revenue: revenueList,
-        rooms: roomsList,
+        byRating: ratingList,
+        byRevenue: revenueList,
+        byRooms: roomsList,
       },
       error: null,
     })

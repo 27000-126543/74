@@ -17,6 +17,8 @@ import {
   Activity,
   DollarSign,
   Calendar,
+  LogIn,
+  LogOut,
 } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import { useGameEngine } from '@/hooks/useGameEngine';
@@ -43,6 +45,7 @@ export default function Operations() {
     events,
     autoAssignGuests,
     checkInGuest,
+    checkOutGuest,
     resolveEvent,
     dailyTick,
   } = useGameStore();
@@ -52,6 +55,11 @@ export default function Operations() {
   const [assignResult, setAssignResult] = useState<Array<{ guestId: string; roomId: string }> | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<GameEvent | null>(null);
   const [dailyTickLoading, setDailyTickLoading] = useState(false);
+  const [selectedGuestForCheckIn, setSelectedGuestForCheckIn] = useState<Guest | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [checkInLoading, setCheckInLoading] = useState(false);
+  const [checkOutLoading, setCheckOutLoading] = useState<string | null>(null);
 
   const waitingGuests = useMemo(() => guests.filter((g) => !g.roomId), [guests]);
   const checkedInGuests = useMemo(() => guests.filter((g) => g.roomId), [guests]);
@@ -116,6 +124,35 @@ export default function Operations() {
     setDailyTickLoading(false);
   };
 
+  const handleOpenRoomModal = (guest: Guest) => {
+    setSelectedGuestForCheckIn(guest);
+    setSelectedRoomId(null);
+    setShowRoomModal(true);
+  };
+
+  const handleConfirmCheckIn = async () => {
+    if (!selectedGuestForCheckIn || !selectedRoomId) return;
+    setCheckInLoading(true);
+    const success = await checkInGuest(selectedGuestForCheckIn.id, selectedRoomId);
+    if (success) {
+      setShowRoomModal(false);
+      setSelectedGuestForCheckIn(null);
+      setSelectedRoomId(null);
+    }
+    setCheckInLoading(false);
+  };
+
+  const handleCheckOut = async (guestId: string) => {
+    setCheckOutLoading(guestId);
+    await checkOutGuest(guestId);
+    setCheckOutLoading(null);
+  };
+
+  const vacantRooms = useMemo(() => {
+    if (!hotel) return [];
+    return hotel.rooms.filter((r) => r.status === 'vacant');
+  }, [hotel]);
+
   return (
     <div className="min-h-screen p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -174,7 +211,7 @@ export default function Operations() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <section className="glass-card p-6 lg:col-span-2">
+        <section className="glass-card p-6">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-gold-400" />
@@ -267,8 +304,77 @@ export default function Operations() {
                       </div>
                     </div>
                   )}
+                  <div className="mt-3 pt-3 border-t border-gold-500/10">
+                    <button
+                      onClick={() => handleOpenRoomModal(guest)}
+                      className="btn-primary w-full py-2 text-sm flex items-center justify-center gap-2"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      办理入住
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        <section className="glass-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <UserCheck className="w-5 h-5 text-emerald-500" />
+            <h2 className="text-xl font-semibold text-white">已入住客人</h2>
+            <span className="badge-emerald ml-1">{checkedInGuests.length} 人</span>
+          </div>
+
+          {checkedInGuests.length === 0 ? (
+            <div className="text-center py-12 text-navy-300">
+              <UserCheck className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>暂无已入住客人</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {checkedInGuests.map((guest) => {
+                const room = hotel?.rooms.find((r) => r.id === guest.roomId);
+                return (
+                  <div
+                    key={guest.id}
+                    className="bg-navy-800/40 rounded-xl p-4 border border-emerald-500/10 hover:border-emerald-500/30 transition-all"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-navy-gradient flex items-center justify-center text-lg">
+                          {guest.avatar || guest.name[0]}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-white">{guest.name}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="badge-emerald text-[10px]">房间 {room?.number || '未知'}</span>
+                            <span className="text-xs text-navy-300">{room?.type || ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-navy-300">满意度</p>
+                        <p className="text-base font-semibold text-white">{guest.satisfaction}%</p>
+                      </div>
+                    </div>
+                    {guest.checkIn && (
+                      <div className="flex items-center gap-1.5 mb-3 text-xs text-navy-300">
+                        <Calendar className="w-3 h-3" />
+                        <span>入住时间: {new Date(guest.checkIn).toLocaleDateString('zh-CN')}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleCheckOut(guest.id)}
+                      disabled={checkOutLoading === guest.id}
+                      className="w-full btn-secondary py-2 text-sm flex items-center justify-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      {checkOutLoading === guest.id ? '退房中...' : '办理退房'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </section>
@@ -431,6 +537,95 @@ export default function Operations() {
           </div>
         )}
       </section>
+
+      {showRoomModal && selectedGuestForCheckIn && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card max-w-md w-full p-6 animate-slide-in">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-navy-gradient flex items-center justify-center text-xl">
+                  {selectedGuestForCheckIn.avatar || selectedGuestForCheckIn.name[0]}
+                </div>
+                <div>
+                  <span className="text-xs text-gold-400 font-medium">办理入住</span>
+                  <h3 className="text-lg font-semibold text-white">{selectedGuestForCheckIn.name}</h3>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRoomModal(false);
+                  setSelectedGuestForCheckIn(null);
+                  setSelectedRoomId(null);
+                }}
+                className="text-navy-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <label className="text-sm text-navy-300 mb-2 block">选择空房</label>
+              {vacantRooms.length === 0 ? (
+                <div className="p-4 bg-coral-500/10 border border-coral-500/30 rounded-xl text-center">
+                  <AlertTriangle className="w-8 h-8 text-coral-500 mx-auto mb-2" />
+                  <p className="text-coral-500 text-sm">暂无可分配的空房</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                  {vacantRooms.map((room) => (
+                    <button
+                      key={room.id}
+                      onClick={() => setSelectedRoomId(room.id)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between ${
+                        selectedRoomId === room.id
+                          ? 'bg-gold-500/20 border-gold-500/50'
+                          : 'bg-navy-800/60 border-gold-500/20 hover:border-gold-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <DoorOpen className={`w-5 h-5 ${selectedRoomId === room.id ? 'text-gold-400' : 'text-navy-300'}`} />
+                        <div>
+                          <p className={`font-medium ${selectedRoomId === room.id ? 'text-gold-400' : 'text-white'}`}>
+                            {room.number}
+                          </p>
+                          <p className="text-xs text-navy-300">{room.type}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gold-400 font-medium">¥{room.price}/晚</p>
+                      </div>
+                      {selectedRoomId === room.id && (
+                        <CheckCircle2 className="w-5 h-5 text-gold-400" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowRoomModal(false);
+                  setSelectedGuestForCheckIn(null);
+                  setSelectedRoomId(null);
+                }}
+                className="btn-secondary flex-1 py-2.5 text-sm"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmCheckIn}
+                disabled={!selectedRoomId || checkInLoading || vacantRooms.length === 0}
+                className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                {checkInLoading ? '办理中...' : '确认入住'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedEvent && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">

@@ -5,6 +5,9 @@ import {
   addMarketListing,
   deleteMarketListing,
   getPriceHistory,
+  addPriceRecord,
+  updatePlayer,
+  getPlayerById,
 } from '../data/store.js'
 import {
   publishListing,
@@ -46,11 +49,12 @@ router.get('/stats', async (_req: Request, res: Response): Promise<void> => {
 router.get('/price-suggestion', async (req: Request, res: Response): Promise<void> => {
   try {
     const { itemType, itemName, itemRarity } = req.query
-    if (!itemName || !itemRarity) {
-      res.status(400).json({ success: false, error: '缺少必要参数' })
+    if (!itemName) {
+      res.status(200).json({ success: true, data: { min: 100, max: 10000, suggested: 2000, history: [] } })
       return
     }
-    const suggested = getSuggestedPrice(itemName as string, itemRarity as string)
+    const rarity = (itemRarity as string) || 'common'
+    const suggested = getSuggestedPrice(itemName as string, rarity)
     const history = getPriceHistory(itemName as string)
     res.status(200).json({ success: true, data: { ...suggested, history } })
   } catch (error) {
@@ -61,11 +65,12 @@ router.get('/price-suggestion', async (req: Request, res: Response): Promise<voi
 router.get('/suggested-price', async (req: Request, res: Response): Promise<void> => {
   try {
     const { itemType, itemName, itemRarity } = req.query
-    if (!itemName || !itemRarity) {
-      res.status(400).json({ success: false, error: '缺少必要参数' })
+    if (!itemName) {
+      res.status(200).json({ success: true, data: { min: 100, max: 10000, suggested: 2000, history: [] } })
       return
     }
-    const suggested = getSuggestedPrice(itemName as string, itemRarity as string)
+    const rarity = (itemRarity as string) || 'common'
+    const suggested = getSuggestedPrice(itemName as string, rarity)
     const history = getPriceHistory(itemName as string)
     res.status(200).json({ success: true, data: { ...suggested, history } })
   } catch (error) {
@@ -91,6 +96,7 @@ router.post('/listings', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ success: false, error: result.message })
       return
     }
+    addPriceRecord(itemName, price)
     res.status(201).json({ success: true, data: result.listing })
   } catch (error) {
     res.status(500).json({ success: false, error: '发布商品失败' })
@@ -115,12 +121,36 @@ router.post('/listings/:listingId/buy', async (req: Request, res: Response): Pro
   try {
     const { listingId } = req.params
     const { buyerId } = req.body
-    const result = purchaseListing(listingId, buyerId)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+    const listing = getMarketListingById(listingId)
+    if (!listing) {
+      res.status(404).json({ success: false, error: '商品不存在' })
       return
     }
-    res.status(200).json({ success: true, data: result.listing })
+    const buyer = getPlayerById(buyerId)
+    if (!buyer) {
+      res.status(404).json({ success: false, error: '买家不存在' })
+      return
+    }
+    if (buyer.coins < listing.price) {
+      res.status(400).json({ success: false, error: '金币不足' })
+      return
+    }
+    const seller = getPlayerById(listing.sellerId)
+    const updatedBuyer = updatePlayer(buyerId, { coins: buyer.coins - listing.price })
+    let sellerCoins = seller ? seller.coins + listing.price : listing.price
+    if (seller) {
+      updatePlayer(listing.sellerId, { coins: seller.coins + listing.price })
+    }
+    addPriceRecord(listing.itemName, listing.price)
+    deleteMarketListing(listingId)
+    res.status(200).json({
+      success: true,
+      data: {
+        listing,
+        buyerCoins: updatedBuyer ? updatedBuyer.coins : buyer.coins - listing.price,
+        sellerCoins,
+      },
+    })
   } catch (error) {
     res.status(500).json({ success: false, error: '购买商品失败' })
   }
@@ -129,13 +159,18 @@ router.post('/listings/:listingId/buy', async (req: Request, res: Response): Pro
 router.delete('/listings/:listingId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { listingId } = req.params
-    const { sellerId } = req.body
-    const result = cancelListing(listingId, sellerId)
-    if (!result.success) {
-      res.status(400).json({ success: false, error: result.message })
+    const sellerId = req.body.sellerId || req.query.sellerId
+    const listing = getMarketListingById(listingId)
+    if (!listing) {
+      res.status(404).json({ success: false, error: '商品不存在' })
       return
     }
-    res.status(200).json({ success: true })
+    if (listing.sellerId !== sellerId) {
+      res.status(403).json({ success: false, error: '无权删除该商品' })
+      return
+    }
+    deleteMarketListing(listingId)
+    res.status(200).json({ success: true, data: { removed: true } })
   } catch (error) {
     res.status(500).json({ success: false, error: '取消上架失败' })
   }
