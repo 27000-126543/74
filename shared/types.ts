@@ -91,6 +91,7 @@ export interface Staff {
 
 export interface Guest {
   id: string;
+  hotelId?: string;
   name: string;
   avatar: string;
   preferences: string[];

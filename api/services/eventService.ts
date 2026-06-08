@@ -243,12 +243,12 @@ export const updatePartyProgress = (partyId: string): PartyEvent | null => {
   return party
 }
 
-export const completePartyEvent = (partyId: string): { success: boolean; revenue?: number } => {
+export const completePartyEvent = (partyId: string): { success: boolean; revenue?: number; message?: string } => {
   const parties = getPartyEventsByHotelId('h1')
   const allParties = [...parties]
   const party = allParties.find(p => p.id === partyId)
-  if (!party) return { success: false }
-  if (party.status === 'completed') return { success: false }
+  if (!party) return { success: false, message: '活动不存在' }
+  if (party.status === 'completed') return { success: false, message: '活动已完成' }
 
   const finalRevenue = Math.round(party.budget * (0.8 + party.serviceScore / 200))
 

@@ -254,3 +254,29 @@ export const getMemberRanking = (guildId: string): GuildMember[] => {
 
   return [...guild.members].sort((a, b) => b.contribution - a.contribution)
 }
+
+export const upgradeGuildResort = (
+  guildId: string
+): { success: boolean; message?: string } => {
+  const guild = getGuildById(guildId)
+  if (!guild) return { success: false, message: '公会不存在' }
+
+  const upgradeCost = guild.resortLevel * 100000
+  const leader = getPlayerById(guild.leaderId)
+  if (!leader) return { success: false, message: '会长不存在' }
+
+  if (leader.coins < upgradeCost) {
+    return { success: false, message: `升级需要 ${upgradeCost} 金币` }
+  }
+
+  updatePlayer(guild.leaderId, { coins: leader.coins - upgradeCost })
+
+  const newLevel = guild.resortLevel + 1
+  updateGuild(guildId, {
+    resortLevel: newLevel,
+    visitorBonus: Math.min(25, 2 + (newLevel - 1) * 2),
+    revenueBonus: Math.min(20, 1 + (newLevel - 1) * 2),
+  })
+
+  return { success: true }
+}

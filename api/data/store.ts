@@ -504,6 +504,8 @@ const store: DataStore = {
   ],
 }
 
+export { store }
+
 export const getPlayerById = (id: string): Player | undefined => store.players.find(p => p.id === id)
 
 export const updatePlayer = (id: string, updates: Partial<Player>): Player | undefined => {
@@ -577,6 +579,31 @@ export const updateHotel = (hotelId: string, updates: Partial<Hotel>): Hotel | u
     return store.hotels[index]
   }
   return undefined
+}
+
+export const addHotel = (hotel: Omit<Hotel, 'id'>): Hotel => {
+  const newHotel = { ...hotel, id: generateId() }
+  store.hotels.push(newHotel)
+  return newHotel
+}
+
+export const createDefaultHotel = (playerId: string): Hotel => {
+  return addHotel({
+    playerId,
+    name: '我的酒店',
+    style: 'modern',
+    rooms: [
+      { id: generateId(), type: 'standard', number: '101', floor: 1, price: 500, comfort: 55, status: 'vacant' },
+      { id: generateId(), type: 'standard', number: '102', floor: 1, price: 500, comfort: 55, status: 'vacant' },
+      { id: generateId(), type: 'standard', number: '103', floor: 1, price: 550, comfort: 58, status: 'vacant' },
+    ],
+    facilities: [
+      { id: generateId(), type: 'restaurant', level: 1, quality: 70 },
+    ],
+    comfortScore: 60,
+    rating: 3.5,
+    totalRevenue: 0,
+  })
 }
 
 export const addRoom = (hotelId: string, roomData: { type: string; floor: number; number: string }): Hotel | undefined => {
@@ -677,6 +704,8 @@ export const deleteStaff = (staffId: string): boolean => {
   }
   return false
 }
+
+export const removeStaff = deleteStaff
 
 export const getGuestsByHotelId = (hotelId: string): Guest[] => {
   const hotel = getHotelById(hotelId)
@@ -789,30 +818,23 @@ export const updatePartyEvent = (partyId: string, updates: Partial<PartyEvent>):
   return undefined
 }
 
+export const getMarketListings = (itemType?: string): MarketListing[] => {
+  if (itemType) return store.marketListings.filter(m => m.itemType === itemType)
+  return store.marketListings
+}
+
 export const getAllMarketListings = (): MarketListing[] => store.marketListings
 
 export const getMarketListingById = (id: string): MarketListing | undefined =>
   store.marketListings.find(m => m.id === id)
 
-export const addMarketListing = (listing: Partial<MarketListing>): MarketListing => {
-  const newListing: MarketListing = {
-    id: listing.id || generateId(),
-    sellerId: listing.sellerId || '',
-    sellerName: listing.sellerName || '',
-    itemType: listing.itemType || 'blueprint',
-    itemName: listing.itemName || '',
-    itemRarity: listing.itemRarity || 'common',
-    price: listing.price ?? 0,
-    suggestedPriceMin: listing.suggestedPriceMin ?? 0,
-    suggestedPriceMax: listing.suggestedPriceMax ?? 0,
-    createdAt: listing.createdAt || new Date(),
-    expiresAt: listing.expiresAt || new Date(Date.now() + 86400000),
-  }
+export const addMarketListing = (listing: Omit<MarketListing, 'id'>): MarketListing => {
+  const newListing = { ...listing, id: generateId() }
   store.marketListings.push(newListing)
   return newListing
 }
 
-export const deleteMarketListing = (id: string): boolean => {
+export const removeMarketListing = (id: string): boolean => {
   const index = store.marketListings.findIndex(m => m.id === id)
   if (index !== -1) {
     store.marketListings.splice(index, 1)
@@ -821,14 +843,17 @@ export const deleteMarketListing = (id: string): boolean => {
   return false
 }
 
-export const getPriceHistory = (itemName: string, itemRarity: string): { date: string; price: number }[] => {
+export const deleteMarketListing = removeMarketListing
+
+export const getPriceHistory = (itemName: string, days: number = 7): number[] => {
+  const cutoff = new Date(Date.now() - days * 86400000)
   return store.priceHistory
-    .filter(p => p.itemName === itemName)
+    .filter(p => p.itemName === itemName && p.date >= cutoff)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .map(p => ({ date: p.date.toISOString(), price: p.price }))
+    .map(p => p.price)
 }
 
-export const addPriceHistory = (itemName: string, itemRarity: string, price: number): void => {
+export const addPriceRecord = (itemName: string, price: number): void => {
   store.priceHistory.push({ itemName, price, date: new Date() })
 }
 
@@ -854,8 +879,8 @@ export const addGuild = (guildData: Partial<Guild>): Guild => {
   return newGuild
 }
 
-export const updateGuild = (guildId: string, updates: Partial<Guild>): Guild | undefined => {
-  const index = store.guilds.findIndex(g => g.id === guildId)
+export const updateGuild = (id: string, updates: Partial<Guild>): Guild | undefined => {
+  const index = store.guilds.findIndex(g => g.id === id)
   if (index !== -1) {
     store.guilds[index] = { ...store.guilds[index], ...updates }
     return store.guilds[index]
@@ -863,33 +888,12 @@ export const updateGuild = (guildId: string, updates: Partial<Guild>): Guild | u
   return undefined
 }
 
-export const getGuestById = (id: string): Guest | undefined => store.guests.find(g => g.id === id)
-
-export const removeStaff = deleteStaff
-export const removeMarketListing = deleteMarketListing
-export const addPriceRecord = (itemName: string, price: number): void => addPriceHistory(itemName, '', price)
-export const getMarketListings = getAllMarketListings
-
-export const createDefaultHotel = (playerId: string): Hotel => {
-  const newHotel: Hotel = {
-    id: generateId(),
-    playerId,
-    name: '我的酒店',
-    style: 'modern',
-    rooms: [
-      { id: generateId(), type: 'standard', number: '101', floor: 1, price: 500, comfort: 55, status: 'vacant' },
-      { id: generateId(), type: 'standard', number: '102', floor: 1, price: 500, comfort: 55, status: 'vacant' },
-      { id: generateId(), type: 'standard', number: '103', floor: 1, price: 550, comfort: 58, status: 'vacant' },
-    ],
-    facilities: [
-      { id: generateId(), type: 'restaurant', level: 1, quality: 70 },
-    ],
-    comfortScore: 60,
-    rating: 3.5,
-    totalRevenue: 0,
+export const addGuildMember = (guildId: string, member: GuildMember): Guild | undefined => {
+  const guild = getGuildById(guildId)
+  if (guild) {
+    guild.members.push(member)
+    guild.totalContribution += member.contribution
+    return guild
   }
-  store.hotels.push(newHotel)
-  return newHotel
+  return undefined
 }
-
-export { store }

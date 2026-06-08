@@ -1,79 +1,68 @@
 import { Router, type Request, type Response } from 'express'
 import {
-  getPlayerById,
-  store,
+  getPlayersSortedByRevenue,
+  getPlayersSortedByLevel,
+  getHotelsSortedByRooms,
+  getHotelByPlayerId,
 } from '../data/store.js'
+import type { Leaderboard, LeaderboardEntry } from '../../shared/types.js'
 
 const router = Router()
 
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const allHotels = [...store.hotels]
+    const revenuePlayers = getPlayersSortedByRevenue()
+    const levelPlayers = getPlayersSortedByLevel()
+    const hotels = getHotelsSortedByRooms()
 
-    const hotelsWithPlayerInfo = allHotels.map(hotel => {
-      const player = getPlayerById(hotel.playerId)
+    const byRevenue: LeaderboardEntry[] = revenuePlayers.map((player, index) => {
+      const hotel = getHotelByPlayerId(player.id)
       return {
-        playerId: hotel.playerId,
-        playerName: player?.name || '',
-        avatar: player?.avatar || '',
-        hotelId: hotel.id,
-        hotelName: hotel.name,
-        rating: hotel.rating,
-        totalRevenue: hotel.totalRevenue,
-        roomCount: hotel.rooms.length,
+        rank: index + 1,
+        playerId: player.id,
+        playerName: player.name,
+        hotelName: hotel?.name || '',
+        rating: hotel?.rating || 0,
+        totalRevenue: hotel?.totalRevenue || 0,
+        roomCount: hotel?.rooms.length || 0,
       }
     })
 
-    const ratingRanking = [...hotelsWithPlayerInfo]
+    const byRating: LeaderboardEntry[] = [...revenuePlayers]
+      .map((player, index) => {
+        const hotel = getHotelByPlayerId(player.id)
+        return {
+          rank: 0,
+          playerId: player.id,
+          playerName: player.name,
+          hotelName: hotel?.name || '',
+          rating: hotel?.rating || 0,
+          totalRevenue: hotel?.totalRevenue || 0,
+          roomCount: hotel?.rooms.length || 0,
+        }
+      })
       .sort((a, b) => b.rating - a.rating)
-      .slice(0, 20)
-      .map((item, index) => ({
-        rank: index + 1,
-        playerId: item.playerId,
-        playerName: item.playerName,
-        avatar: item.avatar,
-        hotelId: item.hotelId,
-        hotelName: item.hotelName,
-        rating: item.rating,
-      }))
+      .map((entry, index) => ({ ...entry, rank: index + 1 }))
 
-    const revenueRanking = [...hotelsWithPlayerInfo]
-      .sort((a, b) => b.totalRevenue - a.totalRevenue)
-      .slice(0, 20)
-      .map((item, index) => ({
-        rank: index + 1,
-        playerId: item.playerId,
-        playerName: item.playerName,
-        avatar: item.avatar,
-        hotelId: item.hotelId,
-        hotelName: item.hotelName,
-        totalRevenue: item.totalRevenue,
-      }))
+    const byRooms: LeaderboardEntry[] = hotels.map((hotel, index) => ({
+      rank: index + 1,
+      playerId: hotel.playerId,
+      playerName: '',
+      hotelName: hotel.name,
+      rating: hotel.rating,
+      totalRevenue: hotel.totalRevenue,
+      roomCount: hotel.rooms.length,
+    }))
 
-    const roomsRanking = [...hotelsWithPlayerInfo]
-      .sort((a, b) => b.roomCount - a.roomCount)
-      .slice(0, 20)
-      .map((item, index) => ({
-        rank: index + 1,
-        playerId: item.playerId,
-        playerName: item.playerName,
-        avatar: item.avatar,
-        hotelId: item.hotelId,
-        hotelName: item.hotelName,
-        roomCount: item.roomCount,
-      }))
+    const leaderboard: Leaderboard = {
+      byRating,
+      byRevenue,
+      byRooms,
+    }
 
-    res.status(200).json({
-      success: true,
-      data: {
-        rating: ratingRanking,
-        revenue: revenueRanking,
-        rooms: roomsRanking,
-      },
-      error: null,
-    })
+    res.status(200).json({ success: true, data: leaderboard })
   } catch (error) {
-    res.status(500).json({ success: false, data: null, error: '获取排行榜失败' })
+    res.status(500).json({ success: false, error: '获取排行榜失败' })
   }
 })
 

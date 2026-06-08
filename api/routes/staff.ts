@@ -113,7 +113,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 router.delete('/:staffId', async (req: Request, res: Response): Promise<void> => {
   try {
     const { staffId } = req.params
-    const success = removeStaff(staffId)
+    const success = deleteStaff(staffId)
     if (!success) {
       res.status(404).json({ success: false, error: '员工不存在' })
       return

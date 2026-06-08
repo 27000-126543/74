@@ -16,6 +16,7 @@ import hotelRoutes from './routes/hotel.js'
 import staffRoutes from './routes/staff.js'
 import guestsRoutes from './routes/operations.js'
 import eventsRoutes from './routes/events.js'
+import partiesRoutes from './routes/parties.js'
 import marketRoutes from './routes/market.js'
 import guildRoutes from './routes/guild.js'
 import analyticsRoutes from './routes/analytics.js'
@@ -41,7 +42,8 @@ app.use('/api/auth', authRoutes)
 app.use('/api/hotels', hotelRoutes)
 app.use('/api/staff', staffRoutes)
 app.use('/api/guests', guestsRoutes)
-app.use('/api', eventsRoutes)
+app.use('/api/events', eventsRoutes)
+app.use('/api/parties', partiesRoutes)
 app.use('/api/market', marketRoutes)
 app.use('/api/guilds', guildRoutes)
 app.use('/api/analytics', analyticsRoutes)

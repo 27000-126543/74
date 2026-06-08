@@ -6,11 +6,10 @@ import {
   addGuest,
   updateRoom,
   getGuestById,
+  updateGuest,
 } from '../data/store.js'
 import {
   autoAssignRoom,
-  checkInGuest,
-  checkOutGuest,
 } from '../services/gameEngine.js'
 
 const router = Router()
@@ -38,13 +37,18 @@ router.get('/waiting', async (_req: Request, res: Response): Promise<void> => {
 router.put('/:guestId/checkin', async (req: Request, res: Response): Promise<void> => {
   try {
     const { guestId } = req.params
-    const { roomId } = req.body
+    const { roomId, hotelId } = req.body
     const guest = getGuestById(guestId)
     if (!guest) {
       res.status(404).json({ success: false, error: '客人不存在' })
       return
     }
-    const hotel = getHotelById(req.body.hotelId || (guest.roomId ? getHotelByRoomId(guest.roomId)?.id : undefined))
+    const hid = hotelId || getHotelIdByRoomId(roomId)
+    if (!hid) {
+      res.status(404).json({ success: false, error: '酒店不存在' })
+      return
+    }
+    const hotel = getHotelById(hid)
     if (!hotel) {
       res.status(404).json({ success: false, error: '酒店不存在' })
       return
@@ -54,13 +58,8 @@ router.put('/:guestId/checkin', async (req: Request, res: Response): Promise<voi
       res.status(404).json({ success: false, error: '房间不存在' })
       return
     }
-    const updatedGuest = { ...guest, roomId, checkIn: new Date() }
-    updateRoom(hotel.id, roomId, { status: 'occupied', guestId })
-    const allGuests = getAllGuests()
-    const idx = allGuests.findIndex(g => g.id === guestId)
-    if (idx !== -1) {
-      allGuests[idx] = updatedGuest
-    }
+    updateRoom(hid, roomId, { status: 'occupied', guestId })
+    const updatedGuest = updateGuest(guestId, { roomId, checkIn: new Date() })
     res.status(200).json({ success: true, data: updatedGuest })
   } catch (error) {
     res.status(500).json({ success: false, error: '办理入住失败' })
@@ -75,16 +74,13 @@ router.put('/:guestId/checkout', async (req: Request, res: Response): Promise<vo
       res.status(404).json({ success: false, error: '客人不存在' })
       return
     }
-    const hotel = guest.roomId ? getHotelByRoomId(guest.roomId) : undefined
-    if (hotel && guest.roomId) {
-      updateRoom(hotel.id, guest.roomId, { status: 'vacant', guestId: undefined })
+    if (guest.roomId) {
+      const hotelId = getHotelIdByRoomId(guest.roomId)
+      if (hotelId) {
+        updateRoom(hotelId, guest.roomId, { status: 'vacant', guestId: undefined })
+      }
     }
-    const updatedGuest = { ...guest, roomId: undefined, checkOut: new Date() }
-    const allGuests = getAllGuests()
-    const idx = allGuests.findIndex(g => g.id === guestId)
-    if (idx !== -1) {
-      allGuests[idx] = updatedGuest
-    }
+    const updatedGuest = updateGuest(guestId, { roomId: undefined, checkOut: new Date() })
     res.status(200).json({ success: true, data: updatedGuest })
   } catch (error) {
     res.status(500).json({ success: false, error: '办理退房失败' })
@@ -101,19 +97,11 @@ router.post('/hotel/:hotelId/auto-assign', async (req: Request, res: Response): 
     }
     const allGuests = getAllGuests()
     const waitingGuests = allGuests.filter(g => !g.roomId)
-    const updatedGuests: typeof allGuests = []
     for (const guest of waitingGuests) {
       const room = autoAssignRoom(guest, hotel)
       if (room) {
-        const updatedGuest = { ...guest, roomId: room.id, checkIn: new Date() }
         updateRoom(hotelId, room.id, { status: 'occupied', guestId: guest.id })
-        const idx = allGuests.findIndex(g => g.id === guest.id)
-        if (idx !== -1) {
-          allGuests[idx] = updatedGuest
-        }
-        updatedGuests.push(updatedGuest)
-      } else {
-        updatedGuests.push(guest)
+        updateGuest(guest.id, { roomId: room.id, checkIn: new Date() })
       }
     }
     const hotelGuests = getGuestsByHotelId(hotelId)
@@ -133,11 +121,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
 })
 
-function getHotelByRoomId(roomId: string) {
+function getHotelIdByRoomId(roomId: string): string | undefined {
   const { store } = require('../data/store.js')
   for (const hotel of store.hotels) {
     if (hotel.rooms.some((r: any) => r.id === roomId)) {
-      return hotel
+      return hotel.id
     }
   }
   return undefined

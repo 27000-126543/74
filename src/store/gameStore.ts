@@ -84,16 +84,12 @@ interface GameState {
   createHotel: (name: string, style: HotelStyle) => Promise<boolean>;
   updateHotelStyle: (style: HotelStyle) => Promise<boolean>;
   updateHotelName: (name: string) => Promise<boolean>;
-  addRoom: (data: { type: string; floor: number; number: string }) => Promise<boolean>;
+  addRoom: (type: string) => Promise<boolean>;
   updateRoomPrice: (roomId: string, price: number) => Promise<boolean>;
   addFacility: (type: string) => Promise<boolean>;
   upgradeFacility: (facilityId: string) => Promise<boolean>;
 
-  hireStaff: (data: {
-    name: string;
-    position: StaffPosition;
-    avatar?: string;
-  }) => Promise<boolean>;
+  hireStaff: (position: StaffPosition) => Promise<boolean>;
   fireStaff: (staffId: string) => Promise<boolean>;
   updateStaffSchedule: (
     staffId: string,
@@ -124,12 +120,13 @@ interface GameState {
     itemName: string;
     itemRarity: ItemRarity;
     price: number;
+    sellerName?: string;
   }) => Promise<boolean>;
   cancelListing: (listingId: string) => Promise<boolean>;
 
   createGuild: (name: string) => Promise<boolean>;
   joinGuild: (guildId: string) => Promise<boolean>;
-  leaveGuild: () => Promise<boolean>;
+  leaveGuild: (guildId: string) => Promise<boolean>;
   contributeGuild: (amount: number) => Promise<boolean>;
   upgradeGuildResort: () => Promise<boolean>;
 
@@ -188,8 +185,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ loading: { ...get().loading, hotel: true }, errors: { ...get().errors, hotel: undefined } });
     try {
       const res = await api.hotel.getByPlayer(pid);
-      if (res.success && res.data) {
-        set({ hotel: res.data });
+      if (res.success) {
+        if (res.data) {
+          set({ hotel: res.data });
+        } else {
+          await get().createHotel(`${get().player?.name || '我的'}酒店`, 'modern');
+        }
       } else {
         set({ errors: { ...get().errors, hotel: res.error } });
       }
@@ -294,10 +295,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ loading: { ...get().loading, guild: true }, errors: { ...get().errors, guild: undefined } });
     try {
       const res = await api.guild.getByPlayer(pid);
-      if (res.success && res.data) {
-        set({ guild: res.data });
+      if (res.success) {
+        set({ guild: res.data || null });
       } else {
-        set({ guild: null });
+        set({ errors: { ...get().errors, guild: res.error } });
       }
     } catch (error) {
       set({ errors: { ...get().errors, guild: error instanceof Error ? error.message : 'Unknown error' } });
@@ -415,10 +416,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     return false;
   },
 
-  addRoom: async (data) => {
+  addRoom: async (type) => {
     const hotelId = get().hotel?.id;
     if (!hotelId) return false;
-    const res = await api.hotel.addRoom(hotelId, data);
+    const hotel = get().hotel;
+    if (!hotel) return false;
+    const maxFloor = hotel.rooms.length > 0 ? Math.max(...hotel.rooms.map(r => r.floor)) : 0;
+    const floor = maxFloor + 1;
+    const roomsOnFloor = hotel.rooms.filter(r => r.floor === floor);
+    const number = `${floor}${String(roomsOnFloor.length + 1).padStart(2, '0')}`;
+    const res = await api.hotel.addRoom(hotelId, { type, floor, number });
     if (res.success && res.data) {
       set({ hotel: res.data });
       return true;
@@ -459,15 +466,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     return false;
   },
 
-  hireStaff: async (data) => {
+  hireStaff: async (position) => {
     const hotelId = get().hotel?.id;
     if (!hotelId) return false;
-    const res = await api.staff.hire(hotelId, data);
-    if (res.success && res.data) {
-      set({ staffs: [...get().staffs, res.data] });
-      return true;
+    try {
+      const candidatesRes = await api.staff.getCandidates(position);
+      if (!candidatesRes.success || !candidatesRes.data || candidatesRes.data.length === 0) {
+        return false;
+      }
+      const randomIndex = Math.floor(Math.random() * candidatesRes.data.length);
+      const candidate = candidatesRes.data[randomIndex];
+      const res = await api.staff.hire(hotelId, candidate);
+      if (res.success && res.data) {
+        set({ staffs: [...get().staffs, res.data] });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      return false;
     }
-    return false;
   },
 
   fireStaff: async (staffId) => {
@@ -613,21 +630,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         marketListings: get().marketListings.filter((l) => l.id !== listingId),
       });
-      if (res.data && get().player) {
-        const updatedPlayer = { ...get().player };
-        if (res.data && 'coins' in res.data === false) {
-        }
-        set({ player: updatedPlayer });
-      }
       return true;
     }
     return false;
   },
 
   createListing: async (data) => {
-    const sellerId = get().player?.id;
-    if (!sellerId) return false;
-    const res = await api.market.createListing(sellerId, data);
+    const player = get().player;
+    if (!player) return false;
+    const sellerId = player.id;
+    const sellerName = player.name;
+    const res = await api.market.createListing(sellerId, { ...data, sellerName });
     if (res.success && res.data) {
       set({ marketListings: [...get().marketListings, res.data] });
       return true;
@@ -668,8 +681,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return false;
   },
 
-  leaveGuild: async () => {
-    const guildId = get().guild?.id;
+  leaveGuild: async (guildId) => {
     const playerId = get().player?.id;
     if (!guildId || !playerId) return false;
     const res = await api.guild.leave(guildId, playerId);

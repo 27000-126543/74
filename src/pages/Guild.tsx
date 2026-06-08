@@ -84,7 +84,7 @@ export default function Guild() {
           <p className="mt-1 text-navy-200">与志同道合的酒店经营者共同发展</p>
         </div>
         {guild ? (
-          <button onClick={() => leaveGuild()} className="btn-secondary">
+          <button onClick={() => leaveGuild(guild.id)} className="btn-secondary">
             <LogOut className="mr-2 inline h-4 w-4" />
             退出公会
           </button>

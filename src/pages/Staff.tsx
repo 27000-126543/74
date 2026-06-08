@@ -98,9 +98,7 @@ export default function Staff() {
   const handleHire = async (position: StaffPosition) => {
     if (!hotel) return;
     setHireLoading(position);
-    const names = ['张伟', '李娜', '王芳', '刘洋', '陈静', '杨帆', '赵磊', '周婷'];
-    const randomName = names[Math.floor(Math.random() * names.length)];
-    await hireStaff({ name: randomName, position });
+    await hireStaff(position);
     setHireLoading(null);
   };
 
